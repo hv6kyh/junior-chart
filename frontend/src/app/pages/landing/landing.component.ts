@@ -17,19 +17,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     private analytics = inject(AnalyticsService);
     private platformId = inject(PLATFORM_ID);
 
-    /* ── animated counters ── */
-    matchRate = 0;
-    matchCount = 0;
-    dataYears = 0;
-    patternCount = 0;
-
-    private readonly targets = {
-        matchRate: 94.8,
-        matchCount: 1240,
-        dataYears: 5,
-        patternCount: 380000,
-    };
-
     /* ── chat demo ── */
     chatMessages: { type: 'bot' | 'user'; content: string; visible: boolean }[] = [
         {
@@ -47,8 +34,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     ];
 
     private observer!: IntersectionObserver;
-    private rafIds: number[] = [];
-    private statsAnimated = false;
     private chatAnimated = false;
     private jsonLdScript: HTMLScriptElement | null = null;
 
@@ -63,7 +48,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
 
     ngOnDestroy() {
         this.observer?.disconnect();
-        this.rafIds.forEach((id) => cancelAnimationFrame(id));
         if (this.jsonLdScript) {
             this.jsonLdScript.remove();
             this.jsonLdScript = null;
@@ -81,10 +65,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
                     const section = entry.target.getAttribute('data-section') || entry.target.className;
                     this.analytics.capture('landing_section_viewed', { section });
 
-                    if (entry.target.classList.contains('stats-trigger') && !this.statsAnimated) {
-                        this.statsAnimated = true;
-                        this.runCounters();
-                    }
                     if (entry.target.classList.contains('chat-trigger') && !this.chatAnimated) {
                         this.chatAnimated = true;
                         this.revealChat();
@@ -159,27 +139,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
         this.jsonLdScript.type = 'application/ld+json';
         this.jsonLdScript.textContent = JSON.stringify(schemas);
         document.head.appendChild(this.jsonLdScript);
-    }
-
-    /* ── counter animation (ease-out cubic) ── */
-
-    private runCounters() {
-        this.tweenTo('matchRate', this.targets.matchRate, 2200, 1);
-        this.tweenTo('matchCount', this.targets.matchCount, 2200, 0);
-        this.tweenTo('dataYears', this.targets.dataYears, 1600, 0);
-        this.tweenTo('patternCount', this.targets.patternCount, 2800, 0);
-    }
-
-    private tweenTo(prop: string, target: number, duration: number, decimals: number) {
-        const t0 = performance.now();
-        const step = (now: number) => {
-            const p = Math.min((now - t0) / duration, 1);
-            const ease = 1 - Math.pow(1 - p, 3);
-            const v = ease * target;
-            (this as any)[prop] = decimals ? +v.toFixed(decimals) : Math.floor(v);
-            if (p < 1) this.rafIds.push(requestAnimationFrame(step));
-        };
-        this.rafIds.push(requestAnimationFrame(step));
     }
 
     /* ── chat message reveal ── */

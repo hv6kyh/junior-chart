@@ -449,52 +449,63 @@
 }
 
 /* ═══════════════════════════════════════════
-   STATS BAR
+   FEATURED STOCKS
    ═══════════════════════════════════════════ */
-.stats-bar {
+.featured-stocks {
     background: #ffffff;
     border-bottom: 1px solid var(--gray-100);
-    padding: 52px 0;
+    padding: 48px 0;
     position: relative;
     z-index: 3;
 }
 
-.stats-inner {
+.featured-label {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-400);
+    margin: 0 0 32px;
+    letter-spacing: 0.3px;
+}
+
+.stocks-row {
     max-width: 1100px;
     margin: 0 auto;
     padding: 0 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 48px;
+    gap: 44px;
+    flex-wrap: wrap;
 }
 
-.stat-block {
-    text-align: center;
-    flex: 1;
+.stock-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.4;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    cursor: default;
 }
 
-.stat-num {
-    display: block;
+.stock-brand:hover {
+    opacity: 0.85;
+    transform: translateY(-2px);
+}
+
+.brand-ticker {
     font-family: var(--font-display);
-    font-size: 40px;
+    font-size: 22px;
     font-weight: 800;
-    color: var(--blue-500);
-    letter-spacing: -1px;
-    margin-bottom: 8px;
+    color: var(--gray-800);
+    letter-spacing: 1.5px;
 }
 
-.stat-label {
-    font-size: 14px;
+.brand-name {
+    font-size: 12px;
     font-weight: 500;
-    color: var(--gray-500);
-}
-
-.stat-divider {
-    width: 1px;
-    height: 48px;
-    background: var(--gray-200);
-    flex-shrink: 0;
+    color: var(--gray-400);
 }
 
 /* ═══════════════════════════════════════════
@@ -1539,21 +1550,12 @@
         justify-content: center;
     }
 
-    .stats-inner {
-        flex-wrap: wrap;
-        gap: 24px;
+    .stocks-row {
+        gap: 28px;
     }
 
-    .stat-block {
-        flex: 0 0 40%;
-    }
-
-    .stat-divider {
-        display: none;
-    }
-
-    .stat-num {
-        font-size: 32px;
+    .brand-ticker {
+        font-size: 18px;
     }
 
     .final-cta h2 {
@@ -1595,8 +1597,12 @@
         padding: 100px 24px;
     }
 
-    .stat-block {
-        flex: 0 0 100%;
+    .stocks-row {
+        gap: 20px 32px;
+    }
+
+    .brand-ticker {
+        font-size: 16px;
     }
 
     .trust-inner {
