@@ -1,12 +1,13 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, Input, effect, input, signal, inject, PLATFORM_ID } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, Input, effect, input, signal, inject, PLATFORM_ID, computed } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { createChart, IChartApi, ISeriesApi, LineStyle, CandlestickData, LineData, Time, CandlestickSeries, LineSeries, AreaSeries } from 'lightweight-charts';
 import { PredictionResult, OHLC } from '../../types/stock.types';
+import { DisclaimerComponent } from '../disclaimer/disclaimer.component';
 
 @Component({
     selector: 'app-chart',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, DisclaimerComponent],
     templateUrl: './chart.component.html',
     styleUrls: ['./chart.component.css']
 })
@@ -32,6 +33,14 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
     private platformId = inject(PLATFORM_ID);
 
     data = input<PredictionResult | null>(null);
+
+    isInsufficient = computed(() => this.data()?.insufficient === true);
+    noMatchMessage = computed(() => {
+        const result = this.data();
+        if (result?.noMatchContext) return result.noMatchContext.message;
+        if (result?.insufficient) return '충분한 과거 패턴을 찾지 못했습니다';
+        return '';
+    });
 
     constructor() {
         effect(() => {

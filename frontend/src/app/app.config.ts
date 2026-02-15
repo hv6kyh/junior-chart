@@ -7,7 +7,7 @@ import {
   TrendingUp, Bell, Settings, LogOut,
   Info, ChevronLeft, ChevronRight, Plus,
   Activity, MessageCircle, HelpCircle, ArrowRight,
-  X, Calendar, Lightbulb,
+  X, Calendar, Lightbulb, AlertTriangle,
 } from 'lucide-angular';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 
@@ -15,7 +15,7 @@ const icons = {
   TrendingUp, Bell, Settings, LogOut,
   Info, ChevronLeft, ChevronRight, Plus,
   Activity, MessageCircle, HelpCircle, ArrowRight,
-  X, Calendar, Lightbulb,
+  X, Calendar, Lightbulb, AlertTriangle,
 };
 
 export const appConfig: ApplicationConfig = {

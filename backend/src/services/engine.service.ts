@@ -1,4 +1,5 @@
-import { OHLC, PredictionMatch, PredictionResult, TimeframeAnalysis, MultiTimeframeResult, AdvancedAnalysisOptions } from '../types/index.js';
+import { OHLC, PredictionMatch, PredictionResult, TimeframeAnalysis, MultiTimeframeResult, AdvancedAnalysisOptions, VolatilityContext, NoMatchContext, PatternClassification } from '../types/index.js';
+import { getTMultiplier, calculateVolatilityContext, classifyPattern, calculateConvergence, generateNoMatchContext } from '../utils/statistics.js';
 import DynamicTimeWarping from 'dynamic-time-warping';
 
 export class EngineService {
@@ -310,13 +311,21 @@ export class EngineService {
 
             if (finalScore >= threshold && volumeCondition) {
                 const future = history.slice(i + windowSize, i + windowSize + predictionSize).map(d => d.close);
+
+                // Phase 3-2: 시뮬레이션 수익률 계산 (비정규화된 원본 가격 기준)
+                const buyPrice = windowData[windowData.length - 1].close;
+                const sellPrice = future.length > 0 ? future[future.length - 1] : undefined;
+                const simulatedReturn = sellPrice !== undefined ? (sellPrice - buyPrice) / buyPrice : undefined;
+
                 matches.push({
                     correlation: finalScore,
                     priceCorrelation: priceScore,
                     volumeCorrelation: volumeScore,
                     future,
                     date: new Date(history[i].time * 1000).toLocaleDateString(),
-                    windowData
+                    windowData,
+                    patternType: classifyPattern(windowData.map(d => d.close)),  // Phase 2-1
+                    simulatedReturn  // Phase 3-2
                 });
             }
         }
@@ -346,6 +355,11 @@ export class EngineService {
 
         if (top5Matches.length > 0) {
             const currentPrice = targetWindow[targetWindow.length - 1].close;
+
+            // t-분포 기반 신뢰구간 (소표본 보정)
+            const df = Math.max(1, top5Matches.length - 1);
+            const t68 = getTMultiplier(df, '68');
+            const t95 = getTMultiplier(df, '95');
 
             for (let step = 0; step < predictionSize; step++) {
                 const normalizedPrices: number[] = [];
@@ -377,13 +391,11 @@ export class EngineService {
                 const variance = normalizedPrices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / normalizedPrices.length;
                 const stdDev = Math.sqrt(variance);
 
-                // 68% 신뢰구간 (±1 표준편차)
-                confidence68Upper[step] = mean + stdDev;
-                confidence68Lower[step] = mean - stdDev;
-
-                // 95% 신뢰구간도 동일하게 계산 (±2 표준편차)
-                confidence95Upper[step] = mean + 2 * stdDev;
-                confidence95Lower[step] = mean - 2 * stdDev;
+                // t-분포 기반 신뢰구간 (소표본 보정)
+                confidence68Upper[step] = mean + t68 * stdDev;
+                confidence68Lower[step] = mean - t68 * stdDev;
+                confidence95Upper[step] = mean + t95 * stdDev;
+                confidence95Lower[step] = mean - t95 * stdDev;
             }
         } else {
             // 매칭 결과가 없을 경우 현재 가격으로 수평선 유지 (0으로 급락 방지)
@@ -395,6 +407,25 @@ export class EngineService {
             confidence95Lower.fill(currentPrice);
         }
 
+        // Phase 1-3: 변동성 컨텍스트 계산
+        const volatilityContext = calculateVolatilityContext(history);
+
+        // Phase 2-2: 시나리오 수렴도 계산
+        const currentPriceForConvergence = targetWindow[targetWindow.length - 1].close;
+        const futurePaths = top5Matches.map(m => {
+            const startPrice = m.windowData[m.windowData.length - 1].close;
+            return m.future.map(price => currentPriceForConvergence * (price / startPrice));
+        });
+        const convergence = top5Matches.length > 0
+            ? calculateConvergence(futurePaths, currentPriceForConvergence)
+            : { score: 0, label: 'neutral' as const };
+
+        // Phase 2-3: 매칭 실패 컨텍스트
+        const noMatchContext = generateNoMatchContext(
+            top5Matches.length,
+            volatilityContext.level
+        );
+
         return {
             history,
             matches: sortedMatches,
@@ -405,7 +436,12 @@ export class EngineService {
             confidence68Lower,
             confidence95Upper,
             confidence95Lower,
-            integratedAnalysis: this.analyzeIntegrated(history)
+            integratedAnalysis: this.analyzeIntegrated(history),
+            insufficient: top5Matches.length < 3,  // Phase 1-2: 매칭 부족 여부
+            volatilityContext,  // Phase 1-3
+            convergenceScore: top5Matches.length > 0 ? convergence.score : undefined,  // Phase 2-2
+            convergenceLabel: top5Matches.length > 0 ? convergence.label : undefined,  // Phase 2-2
+            noMatchContext: noMatchContext ?? undefined  // Phase 2-3
         };
     }
 
@@ -642,6 +678,12 @@ export class EngineService {
 
             if (finalScore >= threshold && volumeCondition) {
                 const future = history.slice(i + windowSize, i + windowSize + predictionSize).map(d => d.close);
+
+                // Phase 3-2: 시뮬레이션 수익률 계산 (비정규화된 원본 가격 기준)
+                const buyPrice = windowData[windowData.length - 1].close;
+                const sellPrice = future.length > 0 ? future[future.length - 1] : undefined;
+                const simulatedReturn = sellPrice !== undefined ? (sellPrice - buyPrice) / buyPrice : undefined;
+
                 matches.push({
                     correlation: finalScore,
                     priceCorrelation: priceScore,
@@ -650,7 +692,9 @@ export class EngineService {
                     timeWarp: opts.useDTW ? timeWarp : undefined,
                     future,
                     date: new Date(history[i].time * 1000).toLocaleDateString(),
-                    windowData
+                    windowData,
+                    patternType: classifyPattern(windowData.map(d => d.close)),  // Phase 2-1
+                    simulatedReturn  // Phase 3-2
                 });
             }
         }
@@ -681,6 +725,11 @@ export class EngineService {
         if (top5Matches.length > 0) {
             const currentPrice = targetWindow[targetWindow.length - 1].close;
 
+            // t-분포 기반 신뢰구간 (소표본 보정)
+            const df = Math.max(1, top5Matches.length - 1);
+            const t68 = getTMultiplier(df, '68');
+            const t95 = getTMultiplier(df, '95');
+
             for (let step = 0; step < predictionSize; step++) {
                 const normalizedPrices: number[] = [];
                 const weights: number[] = [];
@@ -707,10 +756,11 @@ export class EngineService {
                 const variance = normalizedPrices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / normalizedPrices.length;
                 const stdDev = Math.sqrt(variance);
 
-                confidence68Upper[step] = mean + stdDev;
-                confidence68Lower[step] = mean - stdDev;
-                confidence95Upper[step] = mean + 2 * stdDev;
-                confidence95Lower[step] = mean - 2 * stdDev;
+                // t-분포 기반 신뢰구간 (소표본 보정)
+                confidence68Upper[step] = mean + t68 * stdDev;
+                confidence68Lower[step] = mean - t68 * stdDev;
+                confidence95Upper[step] = mean + t95 * stdDev;
+                confidence95Lower[step] = mean - t95 * stdDev;
             }
         } else {
             // 매칭 결과가 없을 경우 현재 가격으로 수평선 유지
@@ -722,6 +772,25 @@ export class EngineService {
             confidence95Lower.fill(currentPrice);
         }
 
+        // Phase 1-3: 변동성 컨텍스트 계산
+        const volatilityContext = calculateVolatilityContext(history);
+
+        // Phase 2-2: 시나리오 수렴도 계산
+        const currentPriceForConvergence = targetWindow[targetWindow.length - 1].close;
+        const futurePaths = top5Matches.map(m => {
+            const startPrice = m.windowData[m.windowData.length - 1].close;
+            return m.future.map(price => currentPriceForConvergence * (price / startPrice));
+        });
+        const convergence = top5Matches.length > 0
+            ? calculateConvergence(futurePaths, currentPriceForConvergence)
+            : { score: 0, label: 'neutral' as const };
+
+        // Phase 2-3: 매칭 실패 컨텍스트
+        const noMatchContext = generateNoMatchContext(
+            top5Matches.length,
+            volatilityContext.level
+        );
+
         return {
             history,
             matches: sortedMatches,
@@ -732,7 +801,12 @@ export class EngineService {
             confidence68Lower,
             confidence95Upper,
             confidence95Lower,
-            integratedAnalysis: this.analyzeIntegrated(history)
+            integratedAnalysis: this.analyzeIntegrated(history),
+            insufficient: top5Matches.length < 3,  // Phase 1-2: 매칭 부족 여부
+            volatilityContext,  // Phase 1-3
+            convergenceScore: top5Matches.length > 0 ? convergence.score : undefined,  // Phase 2-2
+            convergenceLabel: top5Matches.length > 0 ? convergence.label : undefined,  // Phase 2-2
+            noMatchContext: noMatchContext ?? undefined  // Phase 2-3
         };
     }
 }

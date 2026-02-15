@@ -1,1 +1,11 @@
-<div #chartContainer class="chart-container"></div>
+<div #chartContainer class="chart-container">
+    @if (isInsufficient()) {
+        <div class="insufficient-overlay">
+            <div class="insufficient-message">
+                <p>{{ noMatchMessage() }}</p>
+            </div>
+        </div>
+    }
+</div>
+
+<app-disclaimer type="always" />

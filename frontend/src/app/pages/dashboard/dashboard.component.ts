@@ -33,7 +33,6 @@ export class DashboardComponent implements OnInit {
     multiTimeframeData = signal<MultiTimeframeResult | null>(null);
     analysisMode = signal<'BASIC' | 'MULTI' | 'ADVANCED'>('BASIC');
     isLoading = signal(false);
-
     private stockNameMap: Record<string, { name: string; sector: string }> = {
         '000660.KS': { name: 'SK하이닉스', sector: '반도체' },
         'MSFT': { name: '마이크로소프트', sector: 'M7' },
@@ -77,6 +76,15 @@ export class DashboardComponent implements OnInit {
             percent: Math.abs(percent),
             isUp: diff >= 0,
         };
+    });
+
+    volatilityContext = computed(() => this.predictionData()?.volatilityContext ?? null);
+
+    volatilityLevelLabel = computed(() => {
+        const ctx = this.volatilityContext();
+        if (!ctx) return '';
+        const labels: Record<string, string> = { low: '낮음', medium: '보통', high: '높음', very_high: '매우 높음' };
+        return labels[ctx.level] || '';
     });
 
     private watchlistService = inject(WatchlistService);
@@ -152,4 +160,5 @@ export class DashboardComponent implements OnInit {
             });
         }
     }
+
 }

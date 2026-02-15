@@ -53,4 +53,5 @@ export class StockService {
         const symbolsStr = symbols.join(',');
         return this.http.get<any[]>(`${this.baseUrl}/stocks/quotes?symbols=${symbolsStr}`);
     }
+
 }

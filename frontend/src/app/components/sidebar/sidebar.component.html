@@ -40,7 +40,13 @@
             <!-- Confidence Ring -->
             <div class="metric-block confidence-block">
                 <div class="metric-header">
-                    <span class="m-label">패턴 신뢰도</span>
+                    <span class="m-label">
+                        패턴 신뢰도
+                        <span class="tooltip-trigger">
+                            ?
+                            <span class="tooltip-text">RSI와 다이버전스를 종합한 기술적 분석 신뢰도입니다</span>
+                        </span>
+                    </span>
                 </div>
                 <div class="confidence-display">
                     <div class="confidence-ring-wrap">
@@ -72,38 +78,99 @@
                 <lucide-angular name="help-circle" [size]="14" class="info-icon"
                     title="과거 수만 개의 데이터 중 현재와 가장 유사한 구간들입니다."></lucide-angular>
             </div>
+
+            <!-- Part B: Convergence/Divergence Message -->
+            @if (convergenceMessage()) {
+                <div class="convergence-msg" [class]="convergenceMessage()!.cls">
+                    {{ convergenceMessage()!.text }}
+                </div>
+            }
+
+            <!-- Part F: Strong Signal Warning -->
+            @if (strongSignalWarning()) {
+                <div class="strong-signal-warning">
+                    <lucide-angular name="alert-triangle" [size]="14"></lucide-angular>
+                    <span>{{ strongSignalWarning() }}</span>
+                </div>
+            }
+
+            <!-- Part D: Simulation Summary Card -->
+            @if (simulationSummary()) {
+                <div class="simulation-card">
+                    <div class="simulation-header">만약 그때 샀다면...</div>
+                    <div class="simulation-stats">
+                        <span>{{ simulationSummary()!.total }}개 사례 중 </span>
+                        <span class="win">{{ simulationSummary()!.wins }}개 수익</span>
+                        <span>, </span>
+                        <span class="loss">{{ simulationSummary()!.losses }}개 손실</span>
+                    </div>
+                    <div class="simulation-detail">
+                        <span>평균: {{ simulationSummary()!.avgReturn > 0 ? '+' : '' }}{{ simulationSummary()!.avgReturn | number:'1.1-1' }}%</span>
+                        <span>최대: +{{ simulationSummary()!.maxReturn | number:'1.1-1' }}%</span>
+                        <span>최소: {{ simulationSummary()!.minReturn | number:'1.1-1' }}%</span>
+                    </div>
+                    <div class="simulation-warning">과거 결과는 미래를 보장하지 않습니다</div>
+                </div>
+            }
+
+            <!-- Part C: No Match / Insufficient State -->
             <div class="matches-list">
-                @for (match of data()?.matches; track match.date; let i = $index) {
-                    <div class="match-item" (click)="openProof(match)" (mouseenter)="onMatchHover($event, match)"
-                        (mouseleave)="onMatchHover($event, null)">
-                        <div class="match-info">
-                            <span class="match-date">{{ match.date }}</span>
-                            <span class="match-badge" [class.high]="match.correlation > 0.8">
-                                {{ ((match.correlation * 100) | number:'1.1-1') }}%
-                            </span>
-                        </div>
-                        <div class="match-bar-wrap">
-                            <div class="match-bar">
-                                <div class="match-bar-fill" [style.width.%]="match.correlation * 100"
-                                    [class.high]="match.correlation > 0.8"></div>
+                @if (noMatchMessage()) {
+                    <div class="no-match-info">
+                        <p>{{ noMatchMessage() }}</p>
+                    </div>
+                } @else {
+                    @for (match of matchDetails(); track match.date; let i = $index) {
+                        <div class="match-item" (click)="openProof(match)" (mouseenter)="onMatchHover($event, match)"
+                            (mouseleave)="onMatchHover($event, null)">
+                            <!-- Part A: Pattern Type Label -->
+                            @if (match.patternType?.label) {
+                                <div class="pattern-type-label">{{ match.patternType?.label }}</div>
+                            }
+                            <div class="match-info">
+                                <span class="match-date">{{ match.date }}</span>
+                                <span class="match-badge-wrap">
+                                    <span class="match-badge" [class.high]="match.correlation > 0.8">
+                                        {{ ((match.correlation * 100) | number:'1.1-1') }}%
+                                    </span>
+                                    <span class="tooltip-trigger">
+                                        ?
+                                        <span class="tooltip-text">과거 {{ match.predictionDays }}일간의 가격 움직임이 현재와 비슷한 정도를 나타냅니다</span>
+                                    </span>
+                                </span>
+                            </div>
+                            <div class="match-bar-wrap">
+                                <div class="match-bar">
+                                    <div class="match-bar-fill" [style.width.%]="match.correlation * 100"
+                                        [class.high]="match.correlation > 0.8"></div>
+                                </div>
+                            </div>
+                            <!-- Part A: Future Return Display -->
+                            <div class="future-return" [class.positive]="match.futureReturn > 0"
+                                [class.negative]="match.futureReturn <= 0">
+                                <span class="return-label">이후 {{ match.predictionDays }}일: </span>
+                                <span class="return-value">
+                                    {{ match.futureReturn > 0 ? '+' : '' }}{{ match.futureReturn | number:'1.1-1' }}%
+                                    <span class="return-arrow">{{ match.futureReturn > 0 ? '▲' : '▼' }}</span>
+                                </span>
+                            </div>
+                            <div class="match-action">
+                                <span>증명 보기</span>
+                                <lucide-angular name="arrow-right" [size]="12"></lucide-angular>
                             </div>
                         </div>
-                        <div class="match-action">
-                            <span>증명 보기</span>
-                            <lucide-angular name="arrow-right" [size]="12"></lucide-angular>
+                    } @empty {
+                        <div class="empty-msg">
+                            @if (data()) {
+                                <div class="empty-icon">📊</div>
+                                <p>유사한 패턴을 찾지 못했습니다.</p>
+                                <p class="empty-sub">다른 종목이나 분석 모드를 시도해 보세요.</p>
+                            } @else {
+                                <div class="loader-dots"><span></span><span></span><span></span></div>
+                                <p>데이터 분석 중...</p>
+                            }
                         </div>
-                    </div>
-                } @empty {
-                    <div class="empty-msg">
-                        @if (data()) {
-                            <div class="empty-icon">📊</div>
-                            <p>유사한 패턴을 찾지 못했습니다.</p>
-                            <p class="empty-sub">다른 종목이나 분석 모드를 시도해 보세요.</p>
-                        } @else {
-                            <div class="loader-dots"><span></span><span></span><span></span></div>
-                            <p>데이터 분석 중...</p>
-                        }
-                    </div>
+                    }
                 }
             </div>
         </div>

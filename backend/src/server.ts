@@ -3,7 +3,8 @@ import cors from 'cors';
 import YahooFinance from 'yahoo-finance2';
 import dotenv from 'dotenv';
 import { EngineService } from './services/engine.service.js';
-import { OHLC } from './types/index.js';
+import { BacktestService } from './services/backtest.service.js';
+import { OHLC, BacktestMode } from './types/index.js';
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const yahooFinance = new (YahooFinance as any)();
 const engine = new EngineService();
+const backtestService = new BacktestService(engine);
 const getStartDate = () => {
     const d = new Date();
     d.setFullYear(d.getFullYear() - 5);
@@ -210,6 +212,131 @@ app.get('/api/stocks/quotes', async (req, res) => {
         res.json(formattedQuotes);
     } catch (error: any) {
         console.error(`[Backend TS] Quote Error: `, error);
+        res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    }
+});
+
+// YYYY-MM-DD 문자열을 OHLC 배열의 인덱스로 변환 (이진 탐색)
+function findDateIndex(data: OHLC[], dateStr: string): number {
+    const target = new Date(dateStr).getTime() / 1000;
+    let lo = 0;
+    let hi = data.length - 1;
+    let best = 0;
+    while (lo <= hi) {
+        const mid = (lo + hi) >>> 1;
+        if (data[mid].time <= target) {
+            best = mid;
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    return best;
+}
+
+// 백테스팅 엔드포인트
+app.get('/api/stock/:symbol/backtest', async (req, res) => {
+    const { symbol } = req.params;
+    const {
+        from,
+        to,
+        mode = 'basic',
+        step = '5',
+        useDTW,
+        useATR,
+        dtwWeight,
+        atrPeriod,
+    } = req.query;
+
+    // 모드 검증
+    const validModes: BacktestMode[] = ['basic', 'multiTimeframe', 'advanced'];
+    if (!validModes.includes(mode as BacktestMode)) {
+        return res.status(400).json({
+            error: `Invalid mode: ${mode}. Must be one of: ${validModes.join(', ')}`,
+        });
+    }
+
+    const stepNum = Math.max(1, parseInt(step as string) || 5);
+
+    console.log(`[Backend TS] Backtest for: ${symbol}, mode=${mode}, step=${stepNum}`);
+
+    try {
+        const queryOptions = {
+            period1: getStartDate(),
+            interval: '1d',
+        };
+        const result = await (yahooFinance as any).chart(symbol, queryOptions);
+
+        if (!result || !result.quotes) {
+            throw new Error('No data returned from Yahoo Finance');
+        }
+
+        const formattedData: OHLC[] = result.quotes
+            .map((quote: any) => ({
+                time: Math.floor(new Date(quote.date).getTime() / 1000),
+                open: quote.open!,
+                high: quote.high!,
+                low: quote.low!,
+                close: quote.close!,
+                volume: quote.volume || 0,
+            }))
+            .filter((d: any) => d.open !== null && d.close !== null);
+
+        // 날짜 범위 결정
+        const now = new Date();
+        const defaultFrom = new Date(now);
+        defaultFrom.setFullYear(defaultFrom.getFullYear() - 1);
+        const defaultTo = new Date(now);
+        defaultTo.setMonth(defaultTo.getMonth() - 1);
+
+        const fromStr = (from as string) || defaultFrom.toISOString().split('T')[0];
+        const toStr = (to as string) || defaultTo.toISOString().split('T')[0];
+
+        const startIndex = findDateIndex(formattedData, fromStr);
+        const endIndex = findDateIndex(formattedData, toStr);
+
+        if (startIndex >= endIndex) {
+            return res.status(400).json({ error: 'Invalid date range: from must be before to' });
+        }
+
+        // 테스트 포인트 수 제한
+        const maxPoints = 100;
+        const estimatedPoints = Math.ceil((endIndex - startIndex) / stepNum);
+        if (estimatedPoints > maxPoints) {
+            return res.status(400).json({
+                error: `Too many test points (${estimatedPoints}). Increase step or narrow date range. Max: ${maxPoints}`,
+            });
+        }
+
+        // advanced 모드 옵션
+        const advancedOptions =
+            mode === 'advanced'
+                ? {
+                      useDTW: useDTW !== 'false',
+                      useATR: useATR !== 'false',
+                      dtwWeight: dtwWeight ? parseFloat(dtwWeight as string) : 0.2,
+                      atrPeriod: atrPeriod ? parseInt(atrPeriod as string) : 14,
+                  }
+                : undefined;
+
+        const backtestResult = backtestService.run(formattedData, symbol, {
+            mode: mode as BacktestMode,
+            step: stepNum,
+            startIndex,
+            endIndex,
+            advancedOptions,
+        });
+
+        console.log(`[Backend TS] Backtest complete:`, {
+            points: backtestResult.points.length,
+            avgRMSE: backtestResult.aggregate.avgRmsePercent.toFixed(2) + '%',
+            directionalAccuracy: backtestResult.aggregate.directionalAccuracy.toFixed(1) + '%',
+            elapsedMs: backtestResult.elapsedMs,
+        });
+
+        res.json(backtestResult);
+    } catch (error: any) {
+        console.error(`[Backend TS] Backtest Error: `, error);
         res.status(500).json({ error: 'Internal Server Error', message: error.message });
     }
 });

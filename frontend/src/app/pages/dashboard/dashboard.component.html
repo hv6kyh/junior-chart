@@ -4,15 +4,18 @@
         <app-stock-sidebar (stockSelected)="selectSymbol($event)"></app-stock-sidebar>
 
         <main class="chart-section">
-            <!-- Analysis Mode Tabs -->
-            <div class="analysis-modes">
-                @for (mode of analysisModes; track mode.key) {
-                    <button class="mode-tab" [class.active]="analysisMode() === mode.key"
-                        (click)="setAnalysisMode(mode.key)">
-                        <span class="mode-label">{{ mode.label }}</span>
-                        <span class="mode-desc">{{ mode.desc }}</span>
-                    </button>
-                }
+            <!-- Analysis Mode Tabs & Save Button -->
+            <div class="top-controls">
+                <div class="analysis-modes">
+                    @for (mode of analysisModes; track mode.key) {
+                        <button class="mode-tab" [class.active]="analysisMode() === mode.key"
+                            (click)="setAnalysisMode(mode.key)">
+                            <span class="mode-label">{{ mode.label }}</span>
+                            <span class="mode-desc">{{ mode.desc }}</span>
+                        </button>
+                    }
+                </div>
+
             </div>
 
             <!-- Stock Header -->
@@ -22,6 +25,12 @@
                         <div class="name-row">
                             <h2>{{ currentStockInfo().name }}</h2>
                             <span class="stock-code-badge">{{ currentSymbol() }}</span>
+                            @if (volatilityContext()) {
+                                <span class="volatility-badge" [class]="'vol-' + volatilityContext()!.level"
+                                    [title]="volatilityContext()!.message">
+                                    변동성 {{ volatilityLevelLabel() }}
+                                </span>
+                            }
                         </div>
                         <div class="price-row">
                             <span class="current-price" [class.up]="priceChange().isUp" [class.down]="!priceChange().isUp">
@@ -72,6 +81,7 @@
                 <lucide-angular name="info" [size]="14"></lucide-angular>
                 <span>본 분석은 과거 패턴 기반의 참고 자료이며, 실제 투자 결과를 보장하지 않습니다.</span>
             </div>
+
         </main>
 
         <app-sidebar [data]="predictionData()"></app-sidebar>

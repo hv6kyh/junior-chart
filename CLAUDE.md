@@ -45,10 +45,13 @@ Express 5 server fetching stock data from Yahoo Finance and running pattern anal
 - `GET /api/stock/:symbol/multi-timeframe` — Short (7d), medium (15d), long (30d) analysis with combined confidence grade (A/B/C)
 - `GET /api/stock/:symbol/advanced?useDTW&useATR&dtwWeight&atrPeriod` — DTW pattern matching + ATR volatility normalization
 - `GET /api/stocks/quotes?symbols=AAPL,MSFT` — Real-time price quotes for sidebar ticker
+- `GET /api/stock/:symbol/backtest?from&to&mode&step` — Backtesting: replays historical predictions vs actual outcomes. Modes: basic/multiTimeframe/advanced. Returns per-point and aggregate accuracy metrics (RMSE, MAE, directional accuracy, confidence interval coverage). Max 100 test points per request.
 
 **Core engine** (`src/services/engine.service.ts`): Hybrid scoring with Pearson correlation, Spearman rank correlation, volume correlation, Dynamic Time Warping (DTW), and ATR normalization. Matches with correlation >= 0.82 generate prediction scenarios normalized to current price with 68%/95% confidence intervals.
 
-**Key types** (`src/types/index.ts`): `OHLC`, `PredictionMatch`, `PredictionResult`, `MultiTimeframeResult`, `AdvancedAnalysisOptions`
+**Backtest service** (`src/services/backtest.service.ts`): Injects `EngineService` to replay predictions at past time points. Static metric functions (`rmsePercent`, `maePercent`, `directionMatch`, `coverageRate`) are independently testable. `findDateIndex` in `server.ts` converts YYYY-MM-DD to OHLC array index via binary search.
+
+**Key types** (`src/types/index.ts`): `OHLC`, `PredictionMatch`, `PredictionResult`, `MultiTimeframeResult`, `AdvancedAnalysisOptions`, `BacktestMode`, `BacktestConfig`, `BacktestPointMetrics`, `BacktestAggregateMetrics`, `BacktestResult`
 
 **Auth middleware** (`src/middleware/auth.middleware.ts`): Supabase JWT를 `jsonwebtoken`으로 HS256 검증. `requireAuth`(인증 필수, 401 응답)와 `optionalAuth`(토큰 있으면 검증, 없어도 통과) 두 가지 미들웨어 제공. 현재 기존 엔드포인트는 모두 public이며, 향후 보호가 필요한 라우트에 적용.
 
@@ -120,8 +123,9 @@ Angular 21 with standalone components, lightweight-charts for candlestick visual
 ### Testing
 
 **Backend (Jest):**
-- 테스트 파일: `backend/tests/*.test.ts`
+- 테스트 파일: `backend/tests/**/*.test.ts` (including `tests/backtest/`)
 - 실행: `cd backend && npm test`
+- 특정 경로 필터: `npm test -- --testPathPatterns=backtest` (Jest 30에서 `--testPathPattern` → `--testPathPatterns`로 변경됨)
 
 **Frontend 유닛 테스트 (Vitest):**
 - Angular `@angular/build:unit-test` 빌더 사용, `jsdom` 환경
@@ -142,3 +146,7 @@ Both services have multi-stage Dockerfiles. Frontend builds to Nginx with gzip a
 ### Deployment (Vercel)
 
 프론트엔드는 Vercel에서 GitHub main 브랜치 push 시 자동 배포. `npm install` 시 strict peer dep 검사를 하므로 `--legacy-peer-deps`로 설치된 패키지가 있으면 CI에서 실패한다. Angular 패키지 추가/업데이트 후에는 `rm -rf node_modules package-lock.json && npm install`로 lock 파일을 재생성하여 버전을 통일할 것.
+
+### Roadmap
+
+`docs/ROADMAP.md`: 엔진 고도화 및 교육적 가치 강화 로드맵. Phase 1(엔진 신뢰도) → Phase 2(패턴 설명력) → Phase 3(교육적 경험) → Phase 4(투명성) 순서로 구성.
