@@ -1,4 +1,4 @@
-# Jurinee Chart Roadmap
+# Junior Chart Roadmap
 
 > "예언자"가 아닌 "역사 교사" — 과거 패턴을 통해 주린이가 스스로 생각하는 힘을 기르는 서비스
 
@@ -10,11 +10,11 @@
 
 2025년 2월, M7(AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA) 전 종목에 대해 3가지 분석 모드의 백테스팅을 실시했다. 11개월간 종목당 23개 테스트 포인트, 총 161개 시점을 검증한 결과:
 
-| 모드 | 평균 RMSE | 방향 정확도 | 95% 커버율 | 평균 매칭 수 |
-|------|----------|-----------|-----------|------------|
-| Basic | 4.77% | 25.5% | 20.1% | 1.2개 |
-| Multi-Timeframe | 4.85% | 53.4% | 57.8% | 7.3개 |
-| Advanced (DTW+ATR) | 4.60% | 16.8% | 15.8% | 1.1개 |
+| 모드               | 평균 RMSE | 방향 정확도 | 95% 커버율 | 평균 매칭 수 |
+| ------------------ | --------- | ----------- | ---------- | ------------ |
+| Basic              | 4.77%     | 25.5%       | 20.1%      | 1.2개        |
+| Multi-Timeframe    | 4.85%     | 53.4%       | 57.8%      | 7.3개        |
+| Advanced (DTW+ATR) | 4.60%     | 16.8%       | 15.8%      | 1.1개        |
 
 **핵심 발견:**
 
@@ -28,6 +28,7 @@
 주가 예측은 원래 어렵다. 노벨상을 받은 효율적 시장 가설에 의하면 공개 정보만으로는 시장을 일관되게 이길 수 없다. 우리 엔진이 월가를 이기지 못하는 건 당연하며, 그것이 목표도 아니다.
 
 **우리의 진짜 가치:**
+
 > "과거에 비슷한 패턴이 있었을 때, 어떤 일들이 벌어졌는지 보여줌으로써 주린이가 스스로 판단하는 힘을 기르게 한다."
 
 이 로드맵은 엔진의 "정확도"를 높이는 데 집중하지 않는다. 대신 **찾아낸 패턴의 품질, 설명력, 그리고 교육적 가치**를 높이는 데 집중한다.
@@ -54,6 +55,7 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **문제:** 95% 신뢰구간이라고 표시하지만 실제로 58%만 커버한다. 이는 상위 5개 매칭의 단순 표준편차(±2σ)로 구간을 만들기 때문이다. 표본 수 5개는 모집단 분산을 심하게 과소추정한다.
 
 **해결:**
+
 - t-분포 적용 (자유도 = 매칭 수 - 1). 매칭 5개일 때 95% 배수가 ±2σ → ±2.776σ로 넓어진다.
 - 매칭 수에 따라 구간 폭을 동적으로 조정: 매칭이 적을수록 구간을 넓게, 매칭이 많을수록 좁게.
 
@@ -62,6 +64,7 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **검증:** 백테스팅 재실행 후 95% 커버율이 실제 90% 이상이 되는지 확인
 
 **구현 (2026-02-15):**
+
 - `src/utils/statistics.ts`에 `getTMultiplier(df, confidence)` 함수 추가 (df 1~30 + 선형 보간)
 - `engine.service.ts`의 `analyze()`, `analyzeAdvanced()` 양쪽에서 `±1σ/±2σ` → `±t68*σ/±t95*σ`로 교체
 - df는 `Math.max(1, top5Matches.length - 1)`로 계산, 루프 밖에서 1회만 산출
@@ -73,15 +76,18 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **문제:** 매칭이 0개일 때 현재가 수평선을 예측 시나리오로 내보낸다. 사용자는 이것이 "횡보 예측"인지 "데이터 없음"인지 구분할 수 없다.
 
 **해결:**
+
 - 매칭 수 최소 기준(예: 3개 미만) 설정
 - 기준 미달 시 프론트엔드에서 "충분한 과거 패턴을 찾지 못했습니다" 표시
 - 예측 차트 영역을 비활성화하거나 흐리게 처리
 
 **변경 대상:**
+
 - Backend: `PredictionResult`에 `insufficient: boolean` 필드 추가
 - Frontend: 차트 컴포넌트에 조건부 렌더링
 
 **구현 (2026-02-15):**
+
 - `PredictionResult`에 `insufficient?: boolean` 필드 추가
 - `top5Matches.length < 3`이면 `insufficient: true` 반환
 - Frontend 조건부 렌더링은 Phase 3에서 UI 작업 시 함께 구현 예정
@@ -93,6 +99,7 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **문제:** RMSE 5%가 MSFT에서는 큰 오차이고 TSLA에서는 작은 오차인데, 같은 수치로 표시된다.
 
 **해결:**
+
 - 각 종목의 최근 30일 일일 변동률(daily return std)을 계산
 - 예측 오차를 해당 종목의 평균 변동성 대비 상대값으로도 표시
 - 예: "이 예측의 불확실성은 TSLA의 평상시 변동폭 대비 보통 수준입니다"
@@ -100,6 +107,7 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **변경 대상:** `engine.service.ts`에 변동성 컨텍스트 계산 추가
 
 **구현 (2026-02-15):**
+
 - `VolatilityContext` 인터페이스 추가 (dailyReturnStd, annualizedVolatility, level, message)
 - `VolatilityLevel` 타입: low(<15%), medium(15-30%), high(30-50%), very_high(>50%) — 연환산 변동성 기준
 - `calculateVolatilityContext(history, period=30)` 순수 함수로 구현 (`src/utils/statistics.ts`)
@@ -118,6 +126,7 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **개선:** "급등 후 눌림목 패턴이 2023년 3월과 유사합니다" → 아, 그때도 이랬구나
 
 **구현 방향:**
+
 - 매칭된 윈도우의 가격 변화율 패턴을 기반으로 유형 분류
   - **급등 후 조정**: 전반부 상승 → 후반부 하락
   - **V자 반등**: 하락 → 저점 → 반등
@@ -128,10 +137,12 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 - 매칭 결과에서 "이 패턴 유형의 과거 결과" 통계 표시
 
 **변경 대상:**
+
 - Backend: 패턴 분류 로직 (새 서비스 또는 엔진 확장)
 - Frontend: 매칭 카드 UI에 패턴 유형 라벨 추가
 
 **구현 (2026-02-15):**
+
 - `PatternType` 6가지: surge_pullback, v_rebound, steady_rise, sideways, sharp_decline, unknown
 - `classifyPattern(prices)` — 전반부/후반부 수익률, 최대 낙폭, 변동 범위를 기반으로 규칙 기반 분류
 - 각 매칭 객체(`PredictionMatch`)에 `patternType: PatternClassification` 필드 추가 (한국어 label + description 포함)
@@ -146,6 +157,7 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **개선:** 5개 매칭이 전부 비슷한 미래를 가리키는지(수렴), 제각각인지(발산)를 시각적으로 구분한다.
 
 **구현 방향:**
+
 - 시나리오 수렴도(convergence score) 계산: 5개 미래 경로의 분산
 - 수렴: "과거 사례들이 비슷한 결과를 보여줍니다" → 참고 가치 높음
 - 발산: "과거 사례들의 결과가 제각각입니다" → 불확실성 큼
@@ -153,10 +165,12 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
   - 현재 opacity로 구현되어 있으므로, 수렴/발산 라벨만 추가하면 됨
 
 **변경 대상:**
+
 - Backend: `PredictionResult`에 `convergenceScore` 필드 추가
 - Frontend: 수렴/발산 인디케이터 UI
 
 **구현 (2026-02-15):**
+
 - `calculateConvergence(futurePaths, currentPrice)` — 시점별 변동계수(CV) 평균을 `1/(1+avgCV*10)`으로 변환하여 0~1 점수 산출
 - `convergenceScore` (0~1) + `convergenceLabel` (convergent ≥0.7 / neutral / divergent ≤0.3)
 - `PredictionResult`에 두 필드 추가, 매칭 없을 시 undefined
@@ -171,15 +185,18 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **개선:** "이 종목의 최근 움직임은 과거 5년간 유례가 없는 패턴입니다" — 이것 자체가 강력한 정보.
 
 **구현 방향:**
+
 - 매칭 0개 + 최근 변동성 높음 → "전례 없는 급변동 구간"
 - 매칭 0개 + 최근 변동성 보통 → "독특한 패턴, 참고할 과거 사례 없음"
 - 이 메시지를 통해 주린이에게 "지금 상황이 특이하다"는 경각심을 줌
 
 **변경 대상:**
+
 - Backend: 매칭 실패 시 컨텍스트 메시지 생성
 - Frontend: 매칭 없음 상태의 UI 개선
 
 **구현 (2026-02-15):**
+
 - `NoMatchContext` 인터페이스: reason ('no_pattern' | 'insufficient_data' | 'unprecedented') + message + recentVolatility
 - `generateNoMatchContext(matchCount, recentVolatility)` — 매칭 ≥3이면 null, 1~2개이면 '충분한 사례 없음', 0개+고변동성이면 '전례 없는 급변동'
 - `PredictionResult.noMatchContext`로 API 응답에 포함
@@ -208,15 +225,18 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **주린이가 배우는 것:** 과거 패턴은 참고지 보장이 아니다.
 
 **구현 방향:**
+
 - 매칭별로 실제 미래 결과(상승/하락 %)를 함께 보여주기 (이미 `future` 데이터 존재)
 - 매칭 간 결과가 상반될 때 명시적으로 "결과가 갈렸습니다" 표시
 - 프론트엔드 사이드바의 매칭 카드를 스토리텔링 형식으로 재설계
 
 **변경 대상:**
+
 - Frontend: 사이드바 매칭 카드 UI 리디자인
 - Backend: 변경 불필요 (데이터는 이미 있음)
 
 **구현 (2026-02-15):**
+
 - 사이드바 매칭 카드를 스토리텔링 형식으로 재설계 (`sidebar.component.*`)
 - 각 매칭별 실제 미래 수익률(futureReturn) 표시 (green/red + ▲/▼)
 - 패턴 유형 라벨(Phase 2-1) 배지로 표시
@@ -230,6 +250,7 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **핵심 아이디어:** 매칭된 과거 시점에서 실제로 매수했다면 수익/손실이 어땠을지 보여주기.
 
 **구현 방향:**
+
 - 각 매칭의 `windowData` 마지막 가격(매수가) → `future` 마지막 가격(매도가)의 수익률 계산
 - "5개 매칭 중 3개에서 수익, 2개에서 손실" 형태로 표시
 - 평균 수익률, 최대 수익, 최대 손실 통계
@@ -238,10 +259,12 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **주린이가 배우는 것:** "비슷한 패턴이라도 100% 수익은 없다"는 리스크 감각
 
 **변경 대상:**
+
 - Backend: 매칭별 수익률 계산 추가 (간단한 필드 추가)
 - Frontend: 수익/손실 시뮬레이션 카드
 
 **구현 (2026-02-15):**
+
 - Backend: `PredictionMatch`에 `simulatedReturn` 필드 추가 (`engine.service.ts`의 `analyze()`와 `analyzeAdvanced()`에서 계산)
 - 수익률은 정규화 전 실제 가격 기반: `(sellPrice - buyPrice) / buyPrice`
 - Frontend: 사이드바에 시뮬레이션 요약 카드 — 승/패 횟수, 평균/최대/최소 수익률 표시
@@ -254,6 +277,7 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **핵심 아이디어:** 같은 5% 오차가 MSFT에서는 큰 건지, TSLA에서는 작은 건지 직관적으로 보여주기.
 
 **구현 방향:**
+
 - 종목별 "변동성 등급" 표시 (Low / Medium / High / Very High)
 - "이 종목의 하루 평균 변동폭은 X%입니다. 우리 예측의 오차범위와 비교해보세요."
 - 주린이가 "변동성이 크다 = 리스크가 크다 = 더 조심해야 한다"를 체감
@@ -261,10 +285,12 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **주린이가 배우는 것:** 리스크와 변동성의 관계
 
 **변경 대상:**
+
 - ~~Backend: 변동성 등급 계산~~ ✅ Phase 1-3에서 구현 완료 (`volatilityContext` API 응답에 포함)
 - Frontend: 종목 정보 영역에 변동성 배지 추가
 
 **구현 (2026-02-15):**
+
 - 대시보드 종목 헤더에 변동성 배지 추가: `변동성 낮음/보통/높음/매우 높음`
 - 배지 색상 분기: `.vol-low`(green) / `.vol-medium`(yellow) / `.vol-high`(orange) / `.vol-very_high`(red)
 - 호버 시 `volatilityContext.message` 상세 메시지 표시 (title 속성)
@@ -289,17 +315,20 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **왜 이것이 가치인가:** 99% 적중이라고 거짓말하는 유료 리딩방이 넘치는 시장에서, 자신의 한계를 투명하게 공개하는 것 자체가 차별화이자 교육이다.
 
 **구현 방향:**
+
 - 프론트엔드에 "엔진 성적표" 페이지 추가
 - 주기적(주 1회)으로 백테스팅 자동 실행 → 결과 캐싱
 - 종목별, 모드별 정확도 테이블
 - 시간에 따른 정확도 변화 추이 차트
 
 **변경 대상:**
+
 - Backend: 백테스팅 결과 캐싱/저장 메커니즘
 - Frontend: 신규 라우트 `/backtest` 페이지
 - `app.routes.ts`, `sitemap.xml` 업데이트
 
 **판단 (2026-02-15):**
+
 - 프론트엔드 페이지를 구현했으나, RMSE·방향정확도·커버율 같은 엔진 내부 지표를 주린이에게 노출하는 것이 사용자 가치를 제공하지 않는다고 판단하여 **프론트엔드 제거**
 - 백엔드 API(`GET /api/stock/:symbol/backtest`)와 `BacktestService`는 개발자/운영자용 내부 검증 도구로 유지
 - 사용자에게는 엔진 정확도 수치 대신 "과거에 이런 패턴이 있었다"는 스토리를 전달하는 데 집중
@@ -311,6 +340,7 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **핵심 아이디어:** 과거에 내놓은 예측이 실제로 어떻게 됐는지 추적한다.
 
 **구현 방향:**
+
 - 사용자가 분석을 실행할 때마다 예측 스냅샷을 저장 (Supabase)
 - 10거래일 후 실제 가격과 자동 비교
 - "지난주 AAPL 예측 → 실제 결과" 형태로 히스토리 표시
@@ -319,11 +349,13 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **주린이가 배우는 것:** 예측의 한계를 직접 체험하며, "맹신하면 안 된다"를 몸으로 배움
 
 **변경 대상:**
+
 - Backend: 예측 스냅샷 저장 API
 - Supabase: `prediction_snapshots` 테이블
 - Frontend: 예측 히스토리 뷰
 
 **판단 (2026-02-15):**
+
 - 구현 후 검토 결과, 사용자가 수동으로 예측을 저장하고 나중에 확인하는 플로우가 직관적이지 않고 불필요하다고 판단하여 **전체 제거**
 - 예측 정확도 체험은 Phase 4-1 백테스팅이 이미 통계적으로 더 효과적으로 달성하고 있었음
 - 제거 대상: `PredictionTrackingService`, `PredictionHistoryComponent`, Supabase 마이그레이션, 대시보드 저장 버튼
@@ -335,14 +367,17 @@ Phase 4 (투명성)          "스스로를 증명하는 서비스"        4-3만
 **핵심 아이디어:** 모든 예측 결과에 교육적 맥락과 면책 안내를 자연스럽게 녹여낸다.
 
 **구현 방향:**
+
 - 예측 차트 하단에 상시 면책 문구: "이 분석은 과거 패턴에 기반한 참고 자료이며, 미래 수익을 보장하지 않습니다."
 - 매칭 결과가 강한 신호를 보일 때(예: 5개 모두 상승) 특별히 "과거 사례일 뿐 보장이 아닙니다" 강조
 - 분석 결과 페이지에 "이 차트 읽는 법" 교육 툴팁 추가
 
 **변경 대상:**
+
 - Frontend: 면책 문구 컴포넌트, 교육 툴팁
 
 **구현 (2026-02-15):**
+
 - `DisclaimerComponent` 신규 생성: `type` input으로 'always'(일반 면책) / 'strong-signal'(방향 경고) 분기
 - 차트 하단에 상시 면책 문구 배치
 - 매칭 결과가 모두 같은 방향일 때 강조 경고 표시 (사이드바)
@@ -377,11 +412,11 @@ Phase 4 (투명성)
 
 ### 구현 이력
 
-| 날짜 | 마일스톤 | 변경 파일 |
-|------|---------|----------|
-| 2026-02-15 | Phase 1 전체 + Phase 2 전체 | `types/index.ts`, `utils/statistics.ts` (신규), `services/engine.service.ts`, `tests/statistics.test.ts` (신규), `tests/engine-roadmap.test.ts` (신규) |
-| 2026-02-15 | Phase 3 전체 + Phase 4-3 | **Backend:** `types/index.ts`, `services/engine.service.ts` — **Frontend:** `types/stock.types.ts`, `components/sidebar/*`, `components/chart/*`, `components/disclaimer/*` (신규), `pages/dashboard/*`, `services/stock.service.ts`, `app.config.ts` |
-| 2026-02-15 | Phase 4-1, 4-2 제거 | `/backtest` 페이지, `PredictionTrackingService`, `PredictionHistoryComponent`, Supabase 마이그레이션 — 사용자 가치 부족으로 프론트엔드에서 제거 |
+| 날짜       | 마일스톤                    | 변경 파일                                                                                                                                                                                                                                             |
+| ---------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-02-15 | Phase 1 전체 + Phase 2 전체 | `types/index.ts`, `utils/statistics.ts` (신규), `services/engine.service.ts`, `tests/statistics.test.ts` (신규), `tests/engine-roadmap.test.ts` (신규)                                                                                                |
+| 2026-02-15 | Phase 3 전체 + Phase 4-3    | **Backend:** `types/index.ts`, `services/engine.service.ts` — **Frontend:** `types/stock.types.ts`, `components/sidebar/*`, `components/chart/*`, `components/disclaimer/*` (신규), `pages/dashboard/*`, `services/stock.service.ts`, `app.config.ts` |
+| 2026-02-15 | Phase 4-1, 4-2 제거         | `/backtest` 페이지, `PredictionTrackingService`, `PredictionHistoryComponent`, Supabase 마이그레이션 — 사용자 가치 부족으로 프론트엔드에서 제거                                                                                                       |
 
 ### 의존성
 
@@ -408,6 +443,7 @@ Phase 4 (투명성)
 - "우리 엔진의 정확도는 53%입니다, 동전 던지기보다 약간 낫습니다"
 
 이 투명성이 주린이에게 가르쳐주는 건:
+
 > **"확실한 건 없다. 그래서 분산투자하고, 잃어도 되는 돈만 투자하고, 스스로 공부해야 한다."**
 
 이것이 이 서비스가 줄 수 있는 가장 큰 가치다.
