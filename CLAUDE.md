@@ -28,9 +28,9 @@ npm run test:coverage    # Jest coverage report
 
 # Frontend only
 cd frontend
-ng serve                 # Dev server on port 4200
-ng build                 # Production build
-ng test                  # Vitest
+npx ng serve             # Dev server on port 4200
+npx ng build             # Production build
+npx ng test              # Vitest
 npx playwright test      # E2E tests
 ```
 
@@ -58,6 +58,8 @@ Uses ESM modules throughout (`"type": "module"`). TypeScript target: ESNext.
 
 Angular 21 with standalone components, lightweight-charts for candlestick visualization, lucide-angular for icons.
 
+**SSR** (`@angular/ssr`): `app.routes.server.ts`에서 라우트별 렌더 모드 설정. `/`과 `/stock-qna`는 `RenderMode.Prerender`(빌드 시 정적 HTML 생성), `/chart`는 `RenderMode.Client`(lightweight-charts Canvas API가 서버에서 실행 불가). 브라우저 전용 API(`document`, `window`, `IntersectionObserver`, `ResizeObserver`, PostHog, Supabase localStorage)를 사용하는 컴포넌트/서비스에는 반드시 `isPlatformBrowser(this.platformId)` 가드를 적용해야 한다.
+
 **Routing** (`src/app/app.routes.ts`):
 - `/` — Landing page
 - `/chart` — Main dashboard with chart, analysis sidebar, and stock ticker
@@ -70,6 +72,7 @@ Angular 21 with standalone components, lightweight-charts for candlestick visual
 - `WatchlistService` — Supabase `user_stocks` 테이블 직접 CRUD. `effect()`로 `AuthService.isLoggedIn()`을 감시하여 로그인 시 자동 로드, 로그아웃 시 클리어. RLS로 사용자별 데이터 격리.
 - `UIStateService` — Shared UI state via RxJS
 - `AnalyticsService` — PostHog SDK 래퍼 (아래 Analytics 섹션 참조)
+- `SeoService` — 라우트 전환 시 `Title`/`Meta` 서비스로 메타태그(description, keywords, OG) 동적 갱신. `app.routes.ts`의 `data` 프로퍼티에서 라우트별 SEO 데이터를 읽는다.
 
 **Auth modal:** `app.ts` 루트에서 렌더링되어 랜딩 페이지, 대시보드 등 모든 경로에서 접근 가능. `AuthService.showAuthModal()` signal로 표시/숨김을 제어한다.
 
@@ -105,6 +108,15 @@ Angular 21 with standalone components, lightweight-charts for candlestick visual
 
 **새 이벤트 추가 시:** 컴포넌트에 `AnalyticsService`를 주입하고 `this.analytics.capture('event_name', { ... })`를 호출한다. 이벤트명은 `snake_case`, 프로퍼티 키도 `snake_case`로 통일한다.
 
+### SEO
+
+프로덕션 URL: `https://junior-chart.vercel.app`. 한국어명 "주린이 차트", 영어명 "Junior Chart".
+
+- `index.html`: 정적 메타태그(description, OG, Twitter Card), Google/Naver 검색엔진 인증 코드, canonical URL
+- `public/robots.txt`, `public/sitemap.xml`: 크롤러 가이드. 새 라우트 추가 시 sitemap.xml에도 반영할 것
+- `SeoService`: 라우트별 동적 메타태그 갱신. 새 라우트 추가 시 `app.routes.ts`의 `data`에 `title`, `description`, `keywords` 포함
+- `LandingComponent`: JSON-LD 구조화 데이터 (WebApplication + FAQPage 스키마)
+
 ### Testing
 
 **Backend (Jest):**
@@ -126,3 +138,7 @@ Angular 21 with standalone components, lightweight-charts for candlestick visual
 ### Docker
 
 Both services have multi-stage Dockerfiles. Frontend builds to Nginx with gzip and SPA fallback routing (`nginx.conf`). Backend runs Node 24-alpine.
+
+### Deployment (Vercel)
+
+프론트엔드는 Vercel에서 GitHub main 브랜치 push 시 자동 배포. `npm install` 시 strict peer dep 검사를 하므로 `--legacy-peer-deps`로 설치된 패키지가 있으면 CI에서 실패한다. Angular 패키지 추가/업데이트 후에는 `rm -rf node_modules package-lock.json && npm install`로 lock 파일을 재생성하여 버전을 통일할 것.
