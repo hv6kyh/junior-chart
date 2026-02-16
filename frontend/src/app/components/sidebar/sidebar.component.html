@@ -133,10 +133,6 @@
                             @if (i === 0) {
                                 <div class="best-match-badge">가장 유사한 패턴</div>
                             }
-                            <!-- Part A: Pattern Type Label -->
-                            @if (match.patternType?.label) {
-                                <div class="pattern-type-label">{{ match.patternType?.label }}</div>
-                            }
                             <div class="match-info">
                                 <span class="match-date">{{ match.date }}</span>
                                 <span class="match-badge-wrap">
