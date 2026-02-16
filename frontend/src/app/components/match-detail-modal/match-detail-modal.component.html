@@ -34,7 +34,7 @@
                 </h4>
                 <p>
                     위 차트는 과거 {{ uiService.selectedMatch()?.date }} 시점의 <strong>실제 주가 흐름</strong>입니다.
-                    이 패턴이 지금 보고 계신 차트와 매우 유사하기 때문에, 당시 이후 20일간의 주가 움직임을
+                    이 패턴이 지금 보고 계신 차트와 매우 유사하기 때문에, 당시 이후 약 2주간의 주가 움직임을
                     참고하여 현재의 미래 예측을 생성했습니다.
                 </p>
                 <p class="insight-disclaimer">
@@ -50,7 +50,7 @@
                 </div>
                 <div class="m-card">
                     <span class="m-label">참고 기간</span>
-                    <span class="m-value">20일</span>
+                    <span class="m-value">{{ uiService.selectedMatch()?.future?.length || 10 }}일</span>
                 </div>
             </div>
 

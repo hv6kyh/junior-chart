@@ -56,7 +56,24 @@ Express 5 server fetching stock data from Yahoo Finance and running pattern anal
 
 **Auth middleware** (`src/middleware/auth.middleware.ts`): Supabase JWT를 `jsonwebtoken`으로 HS256 검증. `requireAuth`(인증 필수, 401 응답)와 `optionalAuth`(토큰 있으면 검증, 없어도 통과) 두 가지 미들웨어 제공. 현재 기존 엔드포인트는 모두 public이며, 향후 보호가 필요한 라우트에 적용.
 
+**Environment variables** (`backend/.env`, `.env.example` 참조):
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `PORT` | `3000` | 서버 포트 |
+| `CORS_ORIGINS` | `http://localhost:4200` | 쉼표 구분 허용 origin |
+| `SUPABASE_JWT_SECRET` | — | auth 미들웨어 JWT 검증용 (없으면 인증 라우트 사용 불가) |
+
+**Data range**: `getStartDate()`가 현재 시점 기준 5년 전 날짜를 동적 계산. 고정 날짜가 아님.
+
 Uses ESM modules throughout (`"type": "module"`). TypeScript target: ESNext.
+
+**Engine Math Conventions:**
+
+- 가중 평균(weighted mean)을 사용하면 분산도 반드시 가중 분산(weighted variance)으로 계산: `Σ(w_i/W × (x_i - μ)²)`
+- Spearman 순위 계산 시 동점(tie)은 mid-rank 방식 사용: 같은 값은 평균 순위 부여
+- 복합 가중치(price + volume + DTW)의 합은 반드시 1.0 유지. DTW weight 변경 시 price weight가 동적 조정: `priceScore * (0.7 - dtwWeight)`
+- 방향성 매칭에서 ±0.5% 이하 변동은 횡보(sideways)로 간주
 
 ### Frontend (`frontend/`)
 
@@ -85,6 +102,12 @@ Angular 21 with standalone components, lightweight-charts for candlestick visual
 **Environment config:** API base URL, PostHog 키, Supabase URL/anonKey가 `src/environments/environment.ts` (dev) 및 `environment.prod.ts` (prod)에 설정되어 있다. dev에서는 PostHog `apiKey`가 빈 문자열이면 초기화를 건너뛴다.
 
 **Prettier config** is embedded in `package.json`: printWidth 100, singleQuote, Angular HTML parser.
+
+**Frontend Credibility Guidelines:**
+
+- 분석 결과 화면(모달, 사이드바)에서 수치를 하드코딩하지 말 것 — 반드시 백엔드 응답 데이터를 바인딩
+- 랜딩 페이지 마케팅 문구는 "방어 가능한(defensible)" 수준 유지: 실제 데이터 규모(5년 ≈ 1,200개 윈도우)와 큰 괴리 없을 것
+- `predictionSize`는 현재 10일(약 2주) — 프론트엔드에서 예측 기간을 표시할 때 `match.future.length`를 동적 바인딩
 
 ### Analytics (PostHog)
 
@@ -127,7 +150,12 @@ Angular 21 with standalone components, lightweight-charts for candlestick visual
 
 **Backend (Jest):**
 
-- 테스트 파일: `backend/tests/**/*.test.ts` (including `tests/backtest/`)
+- 테스트 파일: `backend/tests/**/*.test.ts`
+  - `tests/backtest/` — 백테스트 메트릭 및 서비스 테스트
+  - `tests/engine.service.test.ts`, `tests/engine.integrated.test.ts` — 엔진 유닛/통합
+  - `tests/engine-roadmap.test.ts` — 로드맵 기능 검증
+  - `tests/statistics.test.ts` — 통계 함수
+  - `tests/integration/api.test.ts` — API 엔드포인트 통합 테스트
 - 실행: `cd backend && npm test`
 - 특정 경로 필터: `npm test -- --testPathPatterns=backtest` (Jest 30에서 `--testPathPattern` → `--testPathPatterns`로 변경됨)
 

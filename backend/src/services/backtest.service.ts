@@ -66,7 +66,7 @@ export class BacktestService {
         if (historySlice.length < minRequired) return null;
 
         // 모드별 예측 크기 (실제 미래 비교 길이)
-        const predictionSize = mode === 'multiTimeframe' ? 10 : 10;
+        const predictionSize = 10; // 모든 모드에서 10일 예측 (basic/multi/advanced 공통)
 
         // 미래 데이터가 충분하지 않으면 스킵
         if (testIndex + predictionSize >= history.length) return null;
@@ -208,6 +208,7 @@ export class BacktestService {
     static rmsePercent(predicted: number[], actual: number[], basePrice: number): number {
         if (predicted.length === 0 || basePrice === 0) return 0;
         const len = Math.min(predicted.length, actual.length);
+        if (len === 0) return 0;
         let sumSq = 0;
         for (let i = 0; i < len; i++) {
             sumSq += (predicted[i] - actual[i]) ** 2;
@@ -222,6 +223,7 @@ export class BacktestService {
     static maePercent(predicted: number[], actual: number[], basePrice: number): number {
         if (predicted.length === 0 || basePrice === 0) return 0;
         const len = Math.min(predicted.length, actual.length);
+        if (len === 0) return 0;
         let sumAbs = 0;
         for (let i = 0; i < len; i++) {
             sumAbs += Math.abs(predicted[i] - actual[i]);
@@ -234,13 +236,12 @@ export class BacktestService {
      * 마지막 예측값 vs 마지막 실제값이 basePrice 대비 같은 방향이면 true
      */
     static directionMatch(predicted: number[], actual: number[], basePrice: number): boolean {
-        if (predicted.length === 0 || actual.length === 0) return false;
-        const predictedDirection = predicted[predicted.length - 1] - basePrice;
-        const actualDirection = actual[actual.length - 1] - basePrice;
-        // 둘 다 0이면 방향 일치 (횡보)
-        if (predictedDirection === 0 && actualDirection === 0) return true;
-        // 부호가 같으면 방향 일치
-        return predictedDirection * actualDirection > 0;
+        if (predicted.length === 0 || actual.length === 0 || basePrice === 0) return false;
+        const predictedChange = (predicted[predicted.length - 1] - basePrice) / basePrice;
+        const actualChange = (actual[actual.length - 1] - basePrice) / basePrice;
+        const threshold = 0.005; // ±0.5% 이하는 횡보로 간주
+        if (Math.abs(predictedChange) < threshold && Math.abs(actualChange) < threshold) return true;
+        return predictedChange * actualChange > 0;
     }
 
     /**

@@ -33,8 +33,17 @@ export class EngineService {
     private arrayToRanks(arr: number[]): number[] {
         const sorted = [...arr].map((val, i) => ({ val, i })).sort((a, b) => a.val - b.val);
         const ranks = new Array(arr.length);
-        for (let i = 0; i < sorted.length; i++) {
-            ranks[sorted[i].i] = i + 1;
+        let i = 0;
+        while (i < sorted.length) {
+            let j = i;
+            while (j < sorted.length && sorted[j].val === sorted[i].val) {
+                j++;
+            }
+            const avgRank = (i + 1 + j) / 2;
+            for (let k = i; k < j; k++) {
+                ranks[sorted[k].i] = avgRank;
+            }
+            i = j;
         }
         return ranks;
     }
@@ -388,7 +397,8 @@ export class EngineService {
 
                 // 표준편차 계산 (가중 평균 기준)
                 const mean = weightedSum;
-                const variance = normalizedPrices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / normalizedPrices.length;
+                const variance = normalizedPrices.reduce((sum, price, i) =>
+                    sum + (weights[i] / totalWeight) * Math.pow(price - mean, 2), 0);
                 const stdDev = Math.sqrt(variance);
 
                 // t-분포 기반 신뢰구간 (소표본 보정)
@@ -668,10 +678,10 @@ export class EngineService {
             }
 
             // 4. 최종 점수 계산
-            // DTW 사용: 가격(50%) + 거래량(30%) + DTW(20%)
+            // DTW 사용: 가격(70% - dtwWeight) + 거래량(30%) + DTW(dtwWeight), 가중치 합계 1.0
             // DTW 미사용: 가격(70%) + 거래량(30%)
             const finalScore = opts.useDTW
-                ? priceScore * 0.5 + volumeScore * 0.3 + dtwSimilarity * opts.dtwWeight
+                ? priceScore * (0.7 - opts.dtwWeight) + volumeScore * 0.3 + dtwSimilarity * opts.dtwWeight
                 : priceScore * 0.7 + volumeScore * 0.3;
 
             const volumeCondition = volumeScore === 0 || volumeScore >= 0.5;
@@ -753,7 +763,8 @@ export class EngineService {
                 scenario[step] = weightedSum;
 
                 const mean = weightedSum;
-                const variance = normalizedPrices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / normalizedPrices.length;
+                const variance = normalizedPrices.reduce((sum, price, i) =>
+                    sum + (weights[i] / totalWeight) * Math.pow(price - mean, 2), 0);
                 const stdDev = Math.sqrt(variance);
 
                 // t-분포 기반 신뢰구간 (소표본 보정)
