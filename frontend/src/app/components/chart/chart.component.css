@@ -32,3 +32,79 @@
     font-size: 14px;
     text-align: center;
 }
+
+/* ── Chart Legend ── */
+.chart-legend {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    z-index: 5;
+    pointer-events: none;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legend-icon {
+    width: 18px;
+    flex-shrink: 0;
+}
+
+.legend-line {
+    height: 3px;
+    border-radius: 2px;
+}
+
+.legend-band {
+    height: 10px;
+    background: rgba(49, 130, 246, 0.18);
+    border: 1px solid rgba(49, 130, 246, 0.25);
+    border-radius: 2px;
+}
+
+.legend-band.bullish {
+    background: rgba(240, 68, 82, 0.18);
+    border-color: rgba(240, 68, 82, 0.25);
+}
+
+.legend-dashed {
+    height: 0;
+    border-top: 2px dashed rgba(49, 130, 246, 0.35);
+}
+
+.legend-dashed.bullish {
+    border-top-color: rgba(240, 68, 82, 0.35);
+}
+
+.legend-label {
+    font-size: 11px;
+    color: #6b7280;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .chart-legend {
+        top: 4px;
+        right: 4px;
+        padding: 5px 8px;
+        gap: 3px;
+    }
+    .legend-label {
+        font-size: 10px;
+    }
+    .legend-icon {
+        width: 14px;
+    }
+}

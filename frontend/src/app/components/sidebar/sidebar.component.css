@@ -248,12 +248,38 @@
     gap: 8px;
     padding: 14px;
     margin-top: 4px;
-    background: var(--primary-lighter);
     border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+/* Default (blue) */
+.comment-default {
+    background: var(--primary-lighter);
+}
+
+.comment-default lucide-angular {
+    color: var(--primary-color);
+}
+
+/* Bullish (light green) - positive reversal signal */
+.comment-bullish {
+    background: rgba(34, 197, 94, 0.12);
+}
+
+.comment-bullish lucide-angular {
+    color: #22c55e;
+}
+
+/* Bearish (light red) - danger signal */
+.comment-bearish {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.comment-bearish lucide-angular {
+    color: #ef4444;
 }
 
 .comment-block lucide-angular {
-    color: var(--primary-color);
     flex-shrink: 0;
     margin-top: 2px;
 }
@@ -328,6 +354,31 @@
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 8px;
+}
+
+/* Part B-2: Emotional Framing */
+.emotional-framing {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.framing-positive {
+    background: rgba(39, 174, 96, 0.15);
+    color: #27ae60;
+}
+
+.framing-neutral {
+    background: rgba(242, 153, 74, 0.15);
+    color: #f2994a;
+}
+
+.framing-negative {
+    background: rgba(235, 87, 87, 0.15);
+    color: #eb5757;
 }
 
 .simulation-stats {
@@ -468,11 +519,33 @@
     border: 1px solid transparent;
 }
 
+/* Part B-3: First Match Highlight */
+.match-item.first-match {
+    border-left: 3px solid var(--primary-color);
+    background: linear-gradient(
+        90deg,
+        rgba(99, 102, 241, 0.04) 0%,
+        var(--bg-color) 100%
+    );
+}
+
 .match-item:hover {
     background: var(--content-bg);
     border-color: var(--primary-light);
     box-shadow: var(--shadow-sm);
     transform: translateY(-1px);
+}
+
+/* Part B-3: Best Match Badge */
+.best-match-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--primary-color);
+    background: var(--primary-lighter);
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin-bottom: 8px;
 }
 
 /* Pattern Type Label (Part A) */
@@ -514,6 +587,30 @@
 
 .match-badge.high {
     color: var(--primary-color);
+}
+
+/* Part B-1: Correlation Strength Label */
+.correlation-strength {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: 4px;
+}
+
+.strength-very-high {
+    background: var(--primary-lighter);
+    color: var(--primary-color);
+}
+
+.strength-high {
+    background: var(--border-light);
+    color: var(--text-secondary);
+}
+
+.strength-medium {
+    background: var(--border-light);
+    color: var(--text-disabled);
 }
 
 /* Future Return Display (Part A) */
@@ -584,10 +681,37 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--text-disabled);
+    transition: all var(--transition-fast);
+}
+
+/* Part C-1: Enhanced CTA for first match */
+.match-action.cta-enhanced {
+    background: var(--primary-color);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 8px;
+    margin-top: 4px;
+}
+
+.match-action.cta-enhanced:hover {
+    background: var(--primary-dark, #5558e3);
 }
 
 .match-item:hover .match-action {
     color: var(--primary-color);
+}
+
+.match-item:hover .match-action.cta-enhanced {
+    color: white;
+}
+
+/* Part C-2: Hover hint - underline on action text */
+.match-item:hover .action-text {
+    text-decoration: underline;
+}
+
+.match-action.cta-enhanced .action-text {
+    text-decoration: none;
 }
 
 /* Empty State */

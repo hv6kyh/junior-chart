@@ -137,8 +137,35 @@ export class SidebarComponent {
     const avgReturn = (returns.reduce((a, b) => a + b, 0) / returns.length) * 100;
     const maxReturn = Math.max(...returns) * 100;
     const minReturn = Math.min(...returns) * 100;
-    return { wins, losses, total: returns.length, avgReturn, maxReturn, minReturn };
+    const winRate = (wins / returns.length) * 100;
+    return { wins, losses, total: returns.length, avgReturn, maxReturn, minReturn, winRate };
   });
+
+  // Part B-2: Emotional Framing based on win rate
+  emotionalFraming = computed(() => {
+    const summary = this.simulationSummary();
+    if (!summary) return null;
+    const winRate = summary.winRate;
+    if (winRate > 60) {
+      return { text: '과거 사례에서 긍정적 결과가 우세합니다', cls: 'framing-positive' };
+    } else if (winRate >= 40) {
+      return { text: '과거 사례의 결과가 엇갈립니다', cls: 'framing-neutral' };
+    } else {
+      return { text: '과거 사례에서 손실이 우세합니다', cls: 'framing-negative' };
+    }
+  });
+
+  // Part B-1: Correlation strength label
+  getCorrelationStrength(correlation: number) {
+    const pct = correlation * 100;
+    if (pct >= 85) {
+      return { label: '매우 유사', cls: 'strength-very-high' };
+    } else if (pct >= 80) {
+      return { label: '유사', cls: 'strength-high' };
+    } else {
+      return { label: '참고 수준', cls: 'strength-medium' };
+    }
+  }
 
   // Part F: Strong Signal Warning
   strongSignalWarning = computed(() => {
@@ -149,6 +176,28 @@ export class SidebarComponent {
     if (allUp) return '모든 과거 사례가 상승을 가리키지만, 과거 사례일 뿐 보장이 아닙니다.';
     if (allDown) return '모든 과거 사례가 하락을 가리키지만, 과거 사례일 뿐 보장이 아닙니다.';
     return null;
+  });
+
+  // Part A-3: Comment Type for Dynamic Styling
+  commentType = computed(() => {
+    const analysis = this.rsiAnalysis();
+    if (!analysis) return 'default';
+
+    const isBullish = analysis.divergence_type === 'Bullish';
+    const isBearish = analysis.divergence_type === 'Bearish';
+    const isOversold = analysis.status?.includes('과매도');
+    const isOverbought = analysis.status?.includes('과매수');
+
+    if (isBullish && isOversold) return 'bullish';
+    if (isBearish && isOverbought) return 'bearish';
+    return 'default';
+  });
+
+  commentIcon = computed(() => {
+    const type = this.commentType();
+    if (type === 'bullish') return 'trending-up';
+    if (type === 'bearish') return 'alert-triangle';
+    return 'message-circle';
   });
 
   constructor(

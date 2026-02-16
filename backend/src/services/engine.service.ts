@@ -226,7 +226,7 @@ export class EngineService {
     }
 
     // 데이터 통합 분석 (RSI Divergence 포함)
-    public analyzeIntegrated(history: OHLC[]): import('../types/index.js').IntegratedAnalysis {
+    public analyzeIntegrated(history: OHLC[], matches: PredictionMatch[] = []): import('../types/index.js').IntegratedAnalysis {
         const prices = history.map(d => d.close);
         const rsi = this.calculateRSI(prices);
         const currentRsi = rsi[rsi.length - 1];
@@ -247,7 +247,6 @@ export class EngineService {
         const rsiMinimas = this.findLocalExtrema(recentRsi, 'min');
 
         let divergenceType: import('../types/index.js').DivergenceType = "None";
-        let confidenceScore = 50; // 기본 점수
 
         // Bearish Divergence (하락 다이버전스): 주가는 고점을 높이나 RSI는 고점을 낮춤
         if (priceMaximas.length >= 2 && rsiMaximas.length >= 2) {
@@ -258,7 +257,6 @@ export class EngineService {
 
             if (p2.value > p1.value && r2.value < r1.value) {
                 divergenceType = "Bearish";
-                confidenceScore += 20;
             }
         }
 
@@ -271,23 +269,87 @@ export class EngineService {
 
             if (p2.value < p1.value && r2.value > r1.value) {
                 divergenceType = "Bullish";
-                confidenceScore += 20;
             }
         }
 
-        // 코멘트 생성
-        let comment = "지표와 주가 흐름이 일치합니다. 매칭된 과거 패턴의 추세를 안정적으로 따라갈 것으로 보입니다.";
+        // A-1. 패턴 신뢰도 세분화: 연속적 스코어 생성 (20~100 범위)
+        let confidenceScore = 0;
+        const matchCount = matches.length;
+
+        // 1. matchCount 기반 base score
+        if (matchCount === 0) confidenceScore = 20;
+        else if (matchCount <= 2) confidenceScore = 35;
+        else if (matchCount <= 4) confidenceScore = 50;
+        else confidenceScore = 60; // 5개 이상
+
+        // 2. Divergence bonus: +15
+        if (divergenceType !== "None") {
+            confidenceScore += 15;
+        }
+
+        // 3. Convergence bonus: 매칭들의 future 방향 일치도에 따라 +5~+15
+        if (matchCount > 0) {
+            const positiveCount = matches.filter(m => m.simulatedReturn !== undefined && m.simulatedReturn > 0).length;
+            const negativeCount = matches.filter(m => m.simulatedReturn !== undefined && m.simulatedReturn <= 0).length;
+            const maxDirectionCount = Math.max(positiveCount, negativeCount);
+            const directionConvergence = maxDirectionCount / matchCount;
+
+            if (directionConvergence > 0.7) {
+                confidenceScore += 15; // > 70% 같은 방향
+            } else if (directionConvergence >= 0.5) {
+                confidenceScore += 5;  // 50-70% 같은 방향
+            }
+        }
+
+        // 4. Top correlation bonus: +10 if best match > 0.85
+        if (matchCount > 0 && matches[0].correlation > 0.85) {
+            confidenceScore += 10;
+        }
+
+        // 5. Cap at 100
+        confidenceScore = Math.min(confidenceScore, 100);
+
+        // A-2. 코멘트 다양화: matches 데이터 기반 6가지 이상 코멘트
+        let comment = "";
+
+        // Calculate metrics for comment selection
+        const winCount = matches.filter(m => m.simulatedReturn !== undefined && m.simulatedReturn > 0).length;
+        const winRate = matchCount > 0 ? winCount / matchCount : 0;
+        const positiveCount = matches.filter(m => m.simulatedReturn !== undefined && m.simulatedReturn > 0).length;
+        const negativeCount = matches.filter(m => m.simulatedReturn !== undefined && m.simulatedReturn <= 0).length;
+        const maxDirectionCount = Math.max(positiveCount, negativeCount);
+        const directionConvergence = matchCount > 0 ? maxDirectionCount / matchCount : 0;
+        const isConvergent = directionConvergence > 0.7;
+
+        // Priority order (first matching condition wins)
         if (status === '과매수' && divergenceType === 'Bearish') {
+            // 1. 과매수 + Bearish divergence
             comment = "주가는 상승 중이나 매수 에너지가 고갈되는 하락 다이버전스가 포착되었습니다. 단기 조정 가능성이 높으니 주의가 필요합니다.";
         } else if (status === '과매도' && divergenceType === 'Bullish') {
+            // 2. 과매도 + Bullish divergence
             comment = "현재 과매도 구간에서 주가 하락세가 둔화되는 상승 다이버전스가 확인됩니다. 강력한 반등 변곡점일 가능성이 큽니다.";
+        } else if (matchCount <= 2) {
+            // 3. 매칭 부족
+            comment = "유사 사례가 적어 예측 신뢰도가 낮습니다. 참고용으로만 활용하세요.";
+        } else if (isConvergent && winRate < 0.4) {
+            // 4. Convergent + mostly losses
+            comment = "과거 유사 사례 대부분이 하락을 보였습니다. 보수적 관점이 필요합니다.";
+        } else if (isConvergent && winRate > 0.6) {
+            // 5. Convergent + mostly wins
+            comment = "과거 유사 사례들이 일관된 상승을 보여, 긍정적 신호로 해석됩니다.";
+        } else if (!isConvergent && matchCount > 2) {
+            // 6. Divergent (mixed directions)
+            comment = "과거 사례 간 결과 편차가 큽니다. 높은 불확실성에 유의하세요.";
+        } else {
+            // 7. Default
+            comment = "지표와 주가 흐름이 일치합니다. 매칭된 과거 패턴의 추세를 안정적으로 따라갈 것으로 보입니다.";
         }
 
         return {
             rsi_value: Math.round(currentRsi * 100) / 100,
             status,
             divergence_type: divergenceType,
-            confidence_score: Math.min(confidenceScore, 100),
+            confidence_score: confidenceScore,
             comment
         };
     }
@@ -446,7 +508,7 @@ export class EngineService {
             confidence68Lower,
             confidence95Upper,
             confidence95Lower,
-            integratedAnalysis: this.analyzeIntegrated(history),
+            integratedAnalysis: this.analyzeIntegrated(history, sortedMatches),
             insufficient: top5Matches.length < 3,  // Phase 1-2: 매칭 부족 여부
             volatilityContext,  // Phase 1-3
             convergenceScore: top5Matches.length > 0 ? convergence.score : undefined,  // Phase 2-2
@@ -480,11 +542,16 @@ export class EngineService {
             longAnalysis
         );
 
+        // 모든 타임프레임의 매칭 결과를 결합하여 analyzeIntegrated에 전달
+        const allMatches = [...shortAnalysis.matches, ...mediumAnalysis.matches, ...longAnalysis.matches]
+            .sort((a, b) => b.correlation - a.correlation)
+            .slice(0, 10);
+
         return {
             short: this.toTimeframeAnalysis(shortAnalysis, 7, 5),
             medium: this.toTimeframeAnalysis(mediumAnalysis, 15, 10),
             long: this.toTimeframeAnalysis(longAnalysis, 30, 15),
-            combined: { ...combined, integratedAnalysis: this.analyzeIntegrated(history) },
+            combined: { ...combined, integratedAnalysis: this.analyzeIntegrated(history, allMatches) },
             confidence
         };
     }
@@ -812,7 +879,7 @@ export class EngineService {
             confidence68Lower,
             confidence95Upper,
             confidence95Lower,
-            integratedAnalysis: this.analyzeIntegrated(history),
+            integratedAnalysis: this.analyzeIntegrated(history, sortedMatches),
             insufficient: top5Matches.length < 3,  // Phase 1-2: 매칭 부족 여부
             volatilityContext,  // Phase 1-3
             convergenceScore: top5Matches.length > 0 ? convergence.score : undefined,  // Phase 2-2

@@ -201,7 +201,7 @@
     gap: 6px;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(8px);
-    padding: 6px 12px;
+    padding: 8px 16px;
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-xs);
 }
@@ -213,13 +213,20 @@
 }
 
 .info-grade {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 800;
+    cursor: help;
 }
 
 .grade-A { color: #27ae60; }
 .grade-B { color: #f2994a; }
 .grade-C { color: #eb5757; }
+
+.grade-description {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+}
 
 .tag-sm {
     padding: 2px 8px;

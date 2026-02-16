@@ -74,6 +74,7 @@ Uses ESM modules throughout (`"type": "module"`). TypeScript target: ESNext.
 - Spearman 순위 계산 시 동점(tie)은 mid-rank 방식 사용: 같은 값은 평균 순위 부여
 - 복합 가중치(price + volume + DTW)의 합은 반드시 1.0 유지. DTW weight 변경 시 price weight가 동적 조정: `priceScore * (0.7 - dtwWeight)`
 - 방향성 매칭에서 ±0.5% 이하 변동은 횡보(sideways)로 간주
+- `analyzeIntegrated(history, matches)`: 신뢰도 20-100 연속 스코어링 (matchCount 기반 base + divergence/convergence/correlation 보너스). 코멘트는 7종 (수렴/발산/승률/매치 수 조합)
 
 ### Frontend (`frontend/`)
 
@@ -97,11 +98,15 @@ Angular 21 with standalone components, lightweight-charts for candlestick visual
 - `AnalyticsService` — PostHog SDK 래퍼 (아래 Analytics 섹션 참조)
 - `SeoService` — 라우트 전환 시 `Title`/`Meta` 서비스로 메타태그(description, keywords, OG) 동적 갱신. `app.routes.ts`의 `data` 프로퍼티에서 라우트별 SEO 데이터를 읽는다.
 
+**Dashboard sidebar UX signals** (`sidebar.component.ts`): `emotionalFraming` (승률 기반 감정 프레이밍), `commentType` (RSI 다이버전스 기반 코멘트 스타일), `getCorrelationStrength()` (상관관계 강도 레이블). 첫 번째 매칭 카드에 "가장 유사한 패턴" 뱃지 + 강화 CTA 표시.
+
 **Auth modal:** `app.ts` 루트에서 렌더링되어 랜딩 페이지, 대시보드 등 모든 경로에서 접근 가능. `AuthService.showAuthModal()` signal로 표시/숨김을 제어한다.
 
 **Environment config:** API base URL, PostHog 키, Supabase URL/anonKey가 `src/environments/environment.ts` (dev) 및 `environment.prod.ts` (prod)에 설정되어 있다. dev에서는 PostHog `apiKey`가 빈 문자열이면 초기화를 건너뛴다.
 
 **Prettier config** is embedded in `package.json`: printWidth 100, singleQuote, Angular HTML parser.
+
+**Color Convention (한국 주식):** Red (#f04452) = 상승/양봉, Blue (#3182f6) = 하락/음봉 (서양 반대). 차트/UI 전체에 일관 적용.
 
 **Frontend Credibility Guidelines:**
 

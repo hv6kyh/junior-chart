@@ -56,9 +56,13 @@
                             @if (analysisMode() === 'MULTI' && multiTimeframeData()) {
                                 <div class="info-pill">
                                     <span class="info-label">종합 신뢰도</span>
-                                    <span class="info-grade" [class]="'grade-' + multiTimeframeData()?.confidence">
+                                    <span class="info-grade" [class]="'grade-' + multiTimeframeData()?.confidence"
+                                        [title]="gradeDescription().tooltip">
                                         {{ multiTimeframeData()?.confidence }}등급
                                     </span>
+                                    @if (gradeDescription().short) {
+                                        <span class="grade-description">· {{ gradeDescription().short }}</span>
+                                    }
                                 </div>
                             }
                             @if (analysisMode() === 'ADVANCED') {

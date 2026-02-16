@@ -65,8 +65,8 @@
             </div>
 
             <!-- RSI Comment -->
-            <div class="comment-block">
-                <lucide-angular name="message-circle" [size]="14"></lucide-angular>
+            <div class="comment-block" [class]="'comment-' + commentType()">
+                <lucide-angular [name]="commentIcon()" [size]="14"></lucide-angular>
                 <p class="comment-text">{{ rsiAnalysis()?.comment || '분석 데이터를 불러오는 중...' }}</p>
             </div>
         </div>
@@ -98,6 +98,12 @@
             @if (simulationSummary()) {
                 <div class="simulation-card">
                     <div class="simulation-header">만약 그때 샀다면...</div>
+                    <!-- Part B-2: Emotional Framing -->
+                    @if (emotionalFraming()) {
+                        <div class="emotional-framing" [class]="emotionalFraming()!.cls">
+                            {{ emotionalFraming()!.text }}
+                        </div>
+                    }
                     <div class="simulation-stats">
                         <span>{{ simulationSummary()!.total }}개 사례 중 </span>
                         <span class="win">{{ simulationSummary()!.wins }}개 수익</span>
@@ -121,8 +127,12 @@
                     </div>
                 } @else {
                     @for (match of matchDetails(); track match.date; let i = $index) {
-                        <div class="match-item" (click)="openProof(match)" (mouseenter)="onMatchHover($event, match)"
+                        <div class="match-item" [class.first-match]="i === 0" (click)="openProof(match)" (mouseenter)="onMatchHover($event, match)"
                             (mouseleave)="onMatchHover($event, null)">
+                            <!-- Part B-3: First Match Highlight Badge -->
+                            @if (i === 0) {
+                                <div class="best-match-badge">가장 유사한 패턴</div>
+                            }
                             <!-- Part A: Pattern Type Label -->
                             @if (match.patternType?.label) {
                                 <div class="pattern-type-label">{{ match.patternType?.label }}</div>
@@ -132,6 +142,10 @@
                                 <span class="match-badge-wrap">
                                     <span class="match-badge" [class.high]="match.correlation > 0.8">
                                         {{ ((match.correlation * 100) | number:'1.1-1') }}%
+                                    </span>
+                                    <!-- Part B-1: Correlation Strength Label -->
+                                    <span class="correlation-strength" [class]="getCorrelationStrength(match.correlation).cls">
+                                        {{ getCorrelationStrength(match.correlation).label }}
                                     </span>
                                     <span class="tooltip-trigger">
                                         ?
@@ -154,8 +168,9 @@
                                     <span class="return-arrow">{{ match.futureReturn > 0 ? '▲' : '▼' }}</span>
                                 </span>
                             </div>
-                            <div class="match-action">
-                                <span>증명 보기</span>
+                            <!-- Part C-1: Enhanced CTA for first match -->
+                            <div class="match-action" [class.cta-enhanced]="i === 0">
+                                <span class="action-text">증명 보기</span>
                                 <lucide-angular name="arrow-right" [size]="12"></lucide-angular>
                             </div>
                         </div>

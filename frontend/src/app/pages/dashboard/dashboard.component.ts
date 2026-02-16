@@ -87,6 +87,29 @@ export class DashboardComponent implements OnInit {
         return labels[ctx.level] || '';
     });
 
+    // Part D-1: Grade Description and Tooltip
+    gradeDescription = computed(() => {
+        const grade = this.multiTimeframeData()?.confidence;
+        if (!grade) return { short: '', tooltip: '' };
+
+        const descriptions: Record<string, { short: string; tooltip: string }> = {
+            A: {
+                short: '3/3 기간 일치',
+                tooltip: '3개 기간(7/15/30일) 모두에서 유사 패턴 발견'
+            },
+            B: {
+                short: '2/3 기간 일치',
+                tooltip: '2개 기간에서 유사 패턴 발견'
+            },
+            C: {
+                short: '1개 이하 일치',
+                tooltip: '1개 이하 기간에서만 유사 패턴 발견'
+            }
+        };
+
+        return descriptions[grade] || { short: '', tooltip: '' };
+    });
+
     private watchlistService = inject(WatchlistService);
 
     constructor(

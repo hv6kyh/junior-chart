@@ -19,11 +19,11 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
     private predictionSeries!: ISeriesApi<'Line'>;
     private matchSeries: ISeriesApi<'Line'>[] = [];
 
-    // 95% 신뢰구간 (외부 구름대)
-    private area95UpperSeries!: ISeriesApi<'Area'>;
-    private area95LowerSeries!: ISeriesApi<'Area'>;
+    // 95% 신뢰구간 (점선 경계)
+    private line95UpperSeries!: ISeriesApi<'Line'>;
+    private line95LowerSeries!: ISeriesApi<'Line'>;
 
-    // 68% 신뢰구간 (내부 구름대)
+    // 68% 신뢰구간 (채움 밴드: upper=색상, lower=흰색 마스크)
     private area68UpperSeries!: ISeriesApi<'Area'>;
     private area68LowerSeries!: ISeriesApi<'Area'>;
 
@@ -41,6 +41,18 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
         if (result?.insufficient) return '충분한 과거 패턴을 찾지 못했습니다';
         return '';
     });
+
+    // 예측 방향: 상승(bullish) vs 하락(bearish)
+    predictionDirection = computed<'bullish' | 'bearish' | null>(() => {
+        const result = this.data();
+        if (!result || result.scenario.length === 0 || !result.scenario.some(v => v !== 0)) return null;
+        if (result.insufficient || result.noMatchContext) return null;
+        const lastClose = result.history[result.history.length - 1]?.close ?? 0;
+        const finalPrice = result.scenario[result.scenario.length - 1];
+        return finalPrice >= lastClose ? 'bullish' : 'bearish';
+    });
+
+    showLegend = computed(() => this.predictionDirection() !== null);
 
     constructor() {
         effect(() => {
@@ -91,53 +103,49 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
             wickUpColor: '#ef5350', wickDownColor: '#26a69a',
         });
 
-        // 95% 신뢰구간 하한 (가장 아래)
-        this.area95LowerSeries = this.chart.addSeries(AreaSeries, {
-            topColor: 'rgba(49, 130, 246, 0.15)',
-            bottomColor: 'rgba(49, 130, 246, 0.05)',
-            lineColor: 'rgba(49, 130, 246, 0.4)',
-            lineWidth: 1,
-            lineStyle: LineStyle.Dotted,
-            priceLineVisible: false,
-            lastValueVisible: false,
-        });
-
-        // 95% 신뢰구간 상한
-        this.area95UpperSeries = this.chart.addSeries(AreaSeries, {
-            topColor: 'rgba(49, 130, 246, 0.15)',
-            bottomColor: 'rgba(49, 130, 246, 0.05)',
-            lineColor: 'rgba(49, 130, 246, 0.4)',
-            lineWidth: 1,
-            lineStyle: LineStyle.Dotted,
-            priceLineVisible: false,
-            lastValueVisible: false,
-        });
-
-        // 68% 신뢰구간 하한
-        this.area68LowerSeries = this.chart.addSeries(AreaSeries, {
-            topColor: 'rgba(49, 130, 246, 0.25)',
-            bottomColor: 'rgba(49, 130, 246, 0.12)',
-            lineColor: 'rgba(49, 130, 246, 0.5)',
-            lineWidth: 1,
-            lineStyle: LineStyle.Dotted,
-            priceLineVisible: false,
-            lastValueVisible: false,
-        });
-
-        // 68% 신뢰구간 상한
+        // 68% 신뢰구간 — 상한 (색상 채움, 아래로 확장)
         this.area68UpperSeries = this.chart.addSeries(AreaSeries, {
-            topColor: 'rgba(49, 130, 246, 0.25)',
-            bottomColor: 'rgba(49, 130, 246, 0.12)',
-            lineColor: 'rgba(49, 130, 246, 0.5)',
+            topColor: 'rgba(49, 130, 246, 0.18)',
+            bottomColor: 'rgba(49, 130, 246, 0.04)',
+            lineColor: 'rgba(49, 130, 246, 0.25)',
             lineWidth: 1,
             lineStyle: LineStyle.Dotted,
+            priceLineVisible: false,
+            lastValueVisible: false,
+        });
+
+        // 68% 신뢰구간 — 하한 (흰색 마스크, 하단 채움을 지워서 밴드 형성)
+        this.area68LowerSeries = this.chart.addSeries(AreaSeries, {
+            topColor: '#ffffff',
+            bottomColor: '#ffffff',
+            lineColor: 'rgba(49, 130, 246, 0.25)',
+            lineWidth: 1,
+            lineStyle: LineStyle.Dotted,
+            priceLineVisible: false,
+            lastValueVisible: false,
+        });
+
+        // 95% 신뢰구간 — 점선 경계 (상한)
+        this.line95UpperSeries = this.chart.addSeries(LineSeries, {
+            color: 'rgba(49, 130, 246, 0.3)',
+            lineWidth: 1,
+            lineStyle: LineStyle.Dashed,
+            priceLineVisible: false,
+            lastValueVisible: false,
+        });
+
+        // 95% 신뢰구간 — 점선 경계 (하한)
+        this.line95LowerSeries = this.chart.addSeries(LineSeries, {
+            color: 'rgba(49, 130, 246, 0.3)',
+            lineWidth: 1,
+            lineStyle: LineStyle.Dashed,
             priceLineVisible: false,
             lastValueVisible: false,
         });
 
         // 평균 예측선 (굵은 실선)
         this.predictionSeries = this.chart.addSeries(LineSeries, {
-            color: '#ff6b6b',
+            color: '#3182f6',
             lineWidth: 3,
             priceLineVisible: false,
             lastValueVisible: true,
@@ -167,32 +175,7 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
     }
 
     private renderData(result: PredictionResult) {
-        console.log('📊 Rendering chart data:', {
-            historyLength: result.history.length,
-            scenarioLength: result.scenario.length,
-            matchesCount: result.matches.length,
-            scenario: result.scenario,
-            confidence95Upper: result.confidence95Upper,
-            confidence95Lower: result.confidence95Lower
-        });
-
         this.candleSeries.setData(result.history as any);
-
-        // Note: setMarkers is not available in all versions of lightweight-charts
-        // The "Future Estimate" label in the overlay serves the same purpose
-        /*
-        const lastCandle = result.history[result.history.length - 1];
-        (this.candleSeries as any).setMarkers([
-            {
-                time: lastCandle.time as any,
-                position: 'aboveBar',
-                color: '#3182F6',
-                shape: 'arrowDown',
-                text: '미래 예측 시작',
-                size: 1
-            }
-        ]);
-        */
 
         // 이전 확률 구름 제거
         this.clearProbabilityCloud();
@@ -203,87 +186,83 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
             const lastCandle = result.history[result.history.length - 1];
             const lastTime = lastCandle.time as number;
 
-            // 1. 확률 구름: 각 매칭 패턴을 투명도로 표시
+            // 방향 기반 색상 결정 (한국 주식 컨벤션: 상승=빨강, 하락=파랑)
+            const isBullish = result.scenario[result.scenario.length - 1] >= lastCandle.close;
+            const colors = isBullish
+                ? {
+                    bandFill: 'rgba(240, 68, 82, 0.18)',
+                    bandFillBottom: 'rgba(240, 68, 82, 0.04)',
+                    bandLine: 'rgba(240, 68, 82, 0.25)',
+                    bound: 'rgba(240, 68, 82, 0.3)',
+                    predLine: '#f04452',
+                    cloud: (opacity: number) => `rgba(240, 68, 82, ${opacity * 0.3})`,
+                }
+                : {
+                    bandFill: 'rgba(49, 130, 246, 0.18)',
+                    bandFillBottom: 'rgba(49, 130, 246, 0.04)',
+                    bandLine: 'rgba(49, 130, 246, 0.25)',
+                    bound: 'rgba(49, 130, 246, 0.3)',
+                    predLine: '#3182f6',
+                    cloud: (opacity: number) => `rgba(49, 130, 246, ${opacity * 0.3})`,
+                };
+
+            // 시리즈 색상 동적 갱신
+            this.area68UpperSeries.applyOptions({
+                topColor: colors.bandFill,
+                bottomColor: colors.bandFillBottom,
+                lineColor: colors.bandLine,
+            });
+            this.area68LowerSeries.applyOptions({ lineColor: colors.bandLine });
+            this.line95UpperSeries.applyOptions({ color: colors.bound });
+            this.line95LowerSeries.applyOptions({ color: colors.bound });
+            this.predictionSeries.applyOptions({ color: colors.predLine });
+
+            // 공통 헬퍼: 시계열 데이터 생성
+            const toSeriesData = (values: number[]) => [
+                { time: lastTime as any, value: lastCandle.close },
+                ...values.map((price, i) => ({
+                    time: this.getNextTradingDay(lastTime, i + 1) as any,
+                    value: price
+                }))
+            ];
+
+            // 1. 68% 신뢰구간 밴드
+            this.area68UpperSeries.setData(toSeriesData(result.confidence68Upper));
+            this.area68LowerSeries.setData(toSeriesData(result.confidence68Lower));
+
+            // 2. 95% 신뢰구간 점선 경계
+            this.line95UpperSeries.setData(toSeriesData(result.confidence95Upper));
+            this.line95LowerSeries.setData(toSeriesData(result.confidence95Lower));
+
+            // 3. 확률 구름: 각 매칭 패턴을 투명도로 표시
             result.matches.forEach((match) => {
                 const lineSeries = this.chart.addSeries(LineSeries, {
-                    color: `rgba(66, 133, 244, ${match.opacity * 0.4})`,
+                    color: colors.cloud(match.opacity),
                     lineWidth: 1,
                     priceLineVisible: false,
                     lastValueVisible: false,
                 });
-
-                const futureSeriesData = [
-                    { time: lastTime as any, value: lastCandle.close },
-                    ...match.future.map((price, i) => ({
-                        time: this.getNextTradingDay(lastTime, i + 1) as any,
-                        value: price
-                    }))
-                ];
-                lineSeries.setData(futureSeriesData);
+                lineSeries.setData(toSeriesData(match.future));
                 this.matchSeries.push(lineSeries);
             });
 
-            // 2. 메인 예측 시나리오 (굵은 선)
-            const predictionData = [
-                { time: lastTime as any, value: lastCandle.close },
-                ...result.scenario.map((price, i) => ({
-                    time: this.getNextTradingDay(lastTime, i + 1) as any,
-                    value: price
-                }))
-            ];
-            this.predictionSeries.setData(predictionData);
-
-            // 3. 신뢰구간 렌더링
-            const area95UpperData = [
-                { time: lastTime as any, value: lastCandle.close },
-                ...result.confidence95Upper.map((price, i) => ({
-                    time: this.getNextTradingDay(lastTime, i + 1) as any,
-                    value: price
-                }))
-            ];
-            this.area95UpperSeries.setData(area95UpperData);
-
-            const area95LowerData = [
-                { time: lastTime as any, value: lastCandle.close },
-                ...result.confidence95Lower.map((price, i) => ({
-                    time: this.getNextTradingDay(lastTime, i + 1) as any,
-                    value: price
-                }))
-            ];
-            this.area95LowerSeries.setData(area95LowerData);
-
-            const area68UpperData = [
-                { time: lastTime as any, value: lastCandle.close },
-                ...result.confidence68Upper.map((price, i) => ({
-                    time: this.getNextTradingDay(lastTime, i + 1) as any,
-                    value: price
-                }))
-            ];
-            this.area68UpperSeries.setData(area68UpperData);
-
-            const area68LowerData = [
-                { time: lastTime as any, value: lastCandle.close },
-                ...result.confidence68Lower.map((price, i) => ({
-                    time: this.getNextTradingDay(lastTime, i + 1) as any,
-                    value: price
-                }))
-            ];
-            this.area68LowerSeries.setData(area68LowerData);
+            // 4. 메인 예측 시나리오 (굵은 선)
+            this.predictionSeries.setData(toSeriesData(result.scenario));
         } else {
             this.predictionSeries.setData([]);
-            this.area95UpperSeries.setData([]);
-            this.area95LowerSeries.setData([]);
+            this.line95UpperSeries.setData([]);
+            this.line95LowerSeries.setData([]);
             this.area68UpperSeries.setData([]);
             this.area68LowerSeries.setData([]);
         }
 
-        // 최근 1년 데이터만 표시 (예측 포함)
+        // 최근 3개월 + 예측 영역 표시 (예측 밴드가 잘 보이도록)
         const lastTime = result.history[result.history.length - 1].time as number;
-        const oneYearAgo = lastTime - (365 * 86400); // 1년 전
-        const futureEnd = this.getNextTradingDay(lastTime, result.scenario.length + 10); // 여유 여백 추가
+        const threeMonthsAgo = lastTime - (90 * 86400);
+        const futureEnd = this.getNextTradingDay(lastTime, result.scenario.length + 5);
 
         this.chart.timeScale().setVisibleRange({
-            from: oneYearAgo as any,
+            from: threeMonthsAgo as any,
             to: futureEnd as any,
         });
     }

@@ -6,6 +6,26 @@
             </div>
         </div>
     }
+
+    @if (showLegend()) {
+        <div class="chart-legend">
+            <div class="legend-item">
+                <span class="legend-icon legend-line"
+                    [style.background]="predictionDirection() === 'bullish' ? '#f04452' : '#3182f6'"></span>
+                <span class="legend-label">예측 시나리오</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-icon legend-band"
+                    [class.bullish]="predictionDirection() === 'bullish'"></span>
+                <span class="legend-label">68% 신뢰구간</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-icon legend-dashed"
+                    [class.bullish]="predictionDirection() === 'bullish'"></span>
+                <span class="legend-label">95% 신뢰구간</span>
+            </div>
+        </div>
+    }
 </div>
 
 <app-disclaimer type="always" />
