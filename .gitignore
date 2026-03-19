@@ -25,7 +25,7 @@ dist-ssr
 *.sw?
 
 # Claude Code
-.claude/
+.claude/settings.local.json
 
 # Playwright MCP
 .playwright-mcp/

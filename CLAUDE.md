@@ -1,191 +1,84 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
-Junior Chart (주린이 차트) — 주식 투자 초보자(주린이 = 주식 + 어린이)를 위한 차트 분석 서비스. 실제 주가 데이터를 기반으로 과거 패턴과의 상관관계를 분석하여 예측 시나리오와 신뢰구간을 생성한다. Angular 21 프론트엔드와 Express 5 백엔드로 구성, 모두 TypeScript.
+Junior Chart (주린이 차트) — Stock chart analysis service for beginner investors. Analyzes correlations between current price data and historical patterns to generate prediction scenarios with confidence intervals. Angular 21 frontend + Express 5 backend, both TypeScript.
 
-**중요: 모든 예측은 과거 패턴에 기반한 확률적 제안일 뿐이며, 실제 미래 주가를 반영하지 않는다. 사용자에게 노출되는 예측 결과에는 반드시 "투자 참고용이며 실제 결과를 보장하지 않는다"는 면책 안내를 포함해야 한다.**
+**IMPORTANT: All predictions are probabilistic suggestions based on historical patterns and do NOT reflect actual future prices. Any prediction shown to users MUST include a disclaimer: "For reference only; does not guarantee actual results."**
 
 ## Commands
 
 ```bash
-# Run both backend (port 3000) and frontend (port 4200) concurrently
+# Both (backend :3000 + frontend :4200)
 npm run dev
-
-# Build both backend and frontend for production
 npm run build
 
-# Backend only
+# Backend
 cd backend
 npm run dev              # tsx watch with hot reload
 npm run build            # tsc compilation
 npm run start            # node dist/server.js
-npm run test             # Jest (requires --experimental-vm-modules, handled by script)
-npm run test:watch       # Jest watch mode
-npm run test:coverage    # Jest coverage report
+npm run test             # Jest (--experimental-vm-modules handled by script)
+npm run test:watch
+npm run test:coverage
 
-# Frontend only
+# Frontend
 cd frontend
-npx ng serve             # Dev server on port 4200
+npx ng serve             # Dev server :4200
 npx ng build             # Production build
 npx ng test              # Vitest
-npx playwright test      # E2E tests
+npx playwright test      # E2E (requires dev server running)
 ```
 
 ## Architecture
 
 ### Backend (`backend/`)
 
-Express 5 server fetching stock data from Yahoo Finance and running pattern analysis.
+Express 5 server — Yahoo Finance data + pattern analysis engine. ESM throughout (`"type": "module"`, target: ESNext).
 
 **API Endpoints:**
+- `GET /api/stock/:symbol` — Basic analysis: 15d vs 5y history, Pearson+Spearman correlation, top 5 matches with confidence intervals
+- `GET /api/stock/:symbol/multi-timeframe` — Short/medium/long (7/15/30d) with combined grade (A/B/C)
+- `GET /api/stock/:symbol/advanced?useDTW&useATR&dtwWeight&atrPeriod` — DTW + ATR normalization
+- `GET /api/stocks/quotes?symbols=AAPL,MSFT` — Real-time quotes for sidebar ticker
+- `GET /api/stock/:symbol/backtest?from&to&mode&step` — Replay predictions vs actuals (max 100 points)
 
-- `GET /api/stock/:symbol` — Basic analysis: last 15 days vs 5-year history, Pearson+Spearman correlation, returns top 5 matches with confidence intervals
-- `GET /api/stock/:symbol/multi-timeframe` — Short (7d), medium (15d), long (30d) analysis with combined confidence grade (A/B/C)
-- `GET /api/stock/:symbol/advanced?useDTW&useATR&dtwWeight&atrPeriod` — DTW pattern matching + ATR volatility normalization
-- `GET /api/stocks/quotes?symbols=AAPL,MSFT` — Real-time price quotes for sidebar ticker
-- `GET /api/stock/:symbol/backtest?from&to&mode&step` — Backtesting: replays historical predictions vs actual outcomes. Modes: basic/multiTimeframe/advanced. Returns per-point and aggregate accuracy metrics (RMSE, MAE, directional accuracy, confidence interval coverage). Max 100 test points per request.
+**Core engine** (`src/services/engine.service.ts`): Hybrid scoring (Pearson, Spearman, volume, DTW, ATR). 가격 상관계수(Pearson+Spearman 평균) >= 0.78 (DTW 사용 시 0.75)인 매치만 필터링, 거래량·DTW는 순위 결정용 복합 점수에만 반영. 상위 5개로 예측 시나리오 + 68%/95% 신뢰구간 생성.
 
-**Core engine** (`src/services/engine.service.ts`): Hybrid scoring with Pearson correlation, Spearman rank correlation, volume correlation, Dynamic Time Warping (DTW), and ATR normalization. Matches with correlation >= 0.82 generate prediction scenarios normalized to current price with 68%/95% confidence intervals.
+**Data range:** `getStartDate()` dynamically calculates 5 years back from now — not a fixed date.
 
-**Backtest service** (`src/services/backtest.service.ts`): Injects `EngineService` to replay predictions at past time points. Static metric functions (`rmsePercent`, `maePercent`, `directionMatch`, `coverageRate`) are independently testable. `findDateIndex` in `server.ts` converts YYYY-MM-DD to OHLC array index via binary search.
+**Auth:** `requireAuth` (401) and `optionalAuth` middleware via Supabase JWT (HS256). All current endpoints are public.
 
-**Key types** (`src/types/index.ts`): `OHLC`, `PredictionMatch`, `PredictionResult`, `MultiTimeframeResult`, `AdvancedAnalysisOptions`, `BacktestMode`, `BacktestConfig`, `BacktestPointMetrics`, `BacktestAggregateMetrics`, `BacktestResult`
+**Environment variables** (see `backend/.env.example`):
 
-**Auth middleware** (`src/middleware/auth.middleware.ts`): Supabase JWT를 `jsonwebtoken`으로 HS256 검증. `requireAuth`(인증 필수, 401 응답)와 `optionalAuth`(토큰 있으면 검증, 없어도 통과) 두 가지 미들웨어 제공. 현재 기존 엔드포인트는 모두 public이며, 향후 보호가 필요한 라우트에 적용.
-
-**Environment variables** (`backend/.env`, `.env.example` 참조):
-
-| 변수 | 기본값 | 설명 |
-|------|--------|------|
-| `PORT` | `3000` | 서버 포트 |
-| `CORS_ORIGINS` | `http://localhost:4200` | 쉼표 구분 허용 origin |
-| `SUPABASE_JWT_SECRET` | — | auth 미들웨어 JWT 검증용 (없으면 인증 라우트 사용 불가) |
-
-**Data range**: `getStartDate()`가 현재 시점 기준 5년 전 날짜를 동적 계산. 고정 날짜가 아님.
-
-Uses ESM modules throughout (`"type": "module"`). TypeScript target: ESNext.
-
-**Engine Math Conventions:**
-
-- 가중 평균(weighted mean)을 사용하면 분산도 반드시 가중 분산(weighted variance)으로 계산: `Σ(w_i/W × (x_i - μ)²)`
-- Spearman 순위 계산 시 동점(tie)은 mid-rank 방식 사용: 같은 값은 평균 순위 부여
-- 복합 가중치(price + volume + DTW)의 합은 반드시 1.0 유지. DTW weight 변경 시 price weight가 동적 조정: `priceScore * (0.7 - dtwWeight)`
-- 방향성 매칭에서 ±0.5% 이하 변동은 횡보(sideways)로 간주
-- `analyzeIntegrated(history, matches)`: 신뢰도 20-100 연속 스코어링 (matchCount 기반 base + divergence/convergence/correlation 보너스). 코멘트는 7종 (수렴/발산/승률/매치 수 조합)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Server port |
+| `CORS_ORIGINS` | `http://localhost:4200` | Comma-separated allowed origins |
+| `SUPABASE_JWT_SECRET` | — | JWT verification for auth middleware |
 
 ### Frontend (`frontend/`)
 
-Angular 21 with standalone components, lightweight-charts for candlestick visualization, lucide-angular for icons.
+Angular 21 standalone components, lightweight-charts (candlestick), lucide-angular (icons).
 
-**SSR** (`@angular/ssr`): `app.routes.server.ts`에서 라우트별 렌더 모드 설정. `/`과 `/stock-qna`는 `RenderMode.Prerender`(빌드 시 정적 HTML 생성), `/chart`는 `RenderMode.Client`(lightweight-charts Canvas API가 서버에서 실행 불가). 브라우저 전용 API(`document`, `window`, `IntersectionObserver`, `ResizeObserver`, PostHog, Supabase localStorage)를 사용하는 컴포넌트/서비스에는 반드시 `isPlatformBrowser(this.platformId)` 가드를 적용해야 한다.
+**Routes:** `/` (landing), `/chart` (dashboard), `/stock-qna` (Q&A)
 
-**Routing** (`src/app/app.routes.ts`):
+**Environment config:** `src/environments/environment.ts` (dev) / `environment.prod.ts` (prod) — API base URL, PostHog key, Supabase URL/anonKey.
 
-- `/` — Landing page
-- `/chart` — Main dashboard with chart, analysis sidebar, and stock ticker
-- `/stock-qna` — Q&A page
+**Prettier:** embedded in `package.json` — printWidth 100, singleQuote, Angular HTML parser.
 
-**Service layer:**
+## Deployment (Vercel)
 
-- `StockService` — HTTP calls to backend API
-- `AuthService` — Supabase Auth 기반 인증 (이메일/비밀번호 로그인, 회원가입, 세션 관리). Signal 기반 상태 관리 (`isLoggedIn`, `currentUser`, `authError`, `authLoading`). `onAuthStateChange` 리스너가 단일 진입점으로 모든 인증 상태를 동기화한다.
-- `SupabaseService` — `@supabase/supabase-js` 클라이언트 싱글턴 래퍼. `autoRefreshToken`, `persistSession` 활성화.
-- `WatchlistService` — Supabase `user_stocks` 테이블 직접 CRUD. `effect()`로 `AuthService.isLoggedIn()`을 감시하여 로그인 시 자동 로드, 로그아웃 시 클리어. RLS로 사용자별 데이터 격리.
-- `UIStateService` — Shared UI state via RxJS
-- `AnalyticsService` — PostHog SDK 래퍼 (아래 Analytics 섹션 참조)
-- `SeoService` — 라우트 전환 시 `Title`/`Meta` 서비스로 메타태그(description, keywords, OG) 동적 갱신. `app.routes.ts`의 `data` 프로퍼티에서 라우트별 SEO 데이터를 읽는다.
+Frontend auto-deploys on push to `main`. Strict peer dep checking — if a package was installed with `--legacy-peer-deps`, CI will fail. After adding/updating Angular packages, regenerate the lock file:
 
-**Dashboard sidebar UX signals** (`sidebar.component.ts`): `emotionalFraming` (승률 기반 감정 프레이밍), `commentType` (RSI 다이버전스 기반 코멘트 스타일), `getCorrelationStrength()` (상관관계 강도 레이블). 첫 번째 매칭 카드에 "가장 유사한 패턴" 뱃지 + 강화 CTA 표시.
+```bash
+rm -rf node_modules package-lock.json && npm install
+```
 
-**Auth modal:** `app.ts` 루트에서 렌더링되어 랜딩 페이지, 대시보드 등 모든 경로에서 접근 가능. `AuthService.showAuthModal()` signal로 표시/숨김을 제어한다.
+## Docker
 
-**Environment config:** API base URL, PostHog 키, Supabase URL/anonKey가 `src/environments/environment.ts` (dev) 및 `environment.prod.ts` (prod)에 설정되어 있다. dev에서는 PostHog `apiKey`가 빈 문자열이면 초기화를 건너뛴다.
+Multi-stage Dockerfiles for both services. Frontend → Nginx (gzip + SPA fallback via `nginx.conf`). Backend → Node 24-alpine.
 
-**Prettier config** is embedded in `package.json`: printWidth 100, singleQuote, Angular HTML parser.
+## Roadmap
 
-**Color Convention (한국 주식):** Red (#f04452) = 상승/양봉, Blue (#3182f6) = 하락/음봉 (서양 반대). 차트/UI 전체에 일관 적용.
-
-**Frontend Credibility Guidelines:**
-
-- 분석 결과 화면(모달, 사이드바)에서 수치를 하드코딩하지 말 것 — 반드시 백엔드 응답 데이터를 바인딩
-- 랜딩 페이지 마케팅 문구는 "방어 가능한(defensible)" 수준 유지: 실제 데이터 규모(5년 ≈ 1,200개 윈도우)와 큰 괴리 없을 것
-- `predictionSize`는 현재 10일(약 2주) — 프론트엔드에서 예측 기간을 표시할 때 `match.future.length`를 동적 바인딩
-
-### Analytics (PostHog)
-
-`posthog-js`를 통해 사용자 행동을 추적한다. `AnalyticsService` (`src/app/services/analytics.service.ts`)가 유일한 진입점이며, 앱 루트(`app.ts`)에서 초기화된다.
-
-**자동 수집 (Autocapture):** 모든 클릭, 페이지뷰, 체류 시간, 세션, 유니크 유저, 기기/브라우저 정보가 코드 없이 자동 수집된다.
-
-**커스텀 이벤트:**
-
-| 이벤트명                  | 위치                  | 프로퍼티                       |
-| ------------------------- | --------------------- | ------------------------------ |
-| `stock_selected`          | DashboardComponent    | `{ symbol }`                   |
-| `analysis_mode_changed`   | DashboardComponent    | `{ mode, symbol }`             |
-| `analysis_loaded`         | DashboardComponent    | `{ symbol, mode, matchCount }` |
-| `analysis_error`          | DashboardComponent    | `{ symbol, mode, error }`      |
-| `sidebar_stock_clicked`   | StockSidebarComponent | `{ code }`                     |
-| `add_stock_clicked`       | StockSidebarComponent | `{ isLoggedIn }`               |
-| `match_proof_opened`      | SidebarComponent      | `{ correlation, date, rank }`  |
-| `landing_section_viewed`  | LandingComponent      | `{ section }`                  |
-| `auth_modal_opened`       | AuthService           | `{ mode }`                     |
-| `user_signed_up`          | AuthService           | `{ email }`                    |
-| `user_logged_in`          | AuthService           | —                              |
-| `user_logged_out`         | AuthService           | —                              |
-| `auth_error`              | AuthService           | `{ mode, error }`              |
-| `watchlist_stock_added`   | WatchlistService      | `{ code, market }`             |
-| `watchlist_stock_removed` | WatchlistService      | `{ code, market }`             |
-
-**새 이벤트 추가 시:** 컴포넌트에 `AnalyticsService`를 주입하고 `this.analytics.capture('event_name', { ... })`를 호출한다. 이벤트명은 `snake_case`, 프로퍼티 키도 `snake_case`로 통일한다.
-
-### SEO
-
-프로덕션 URL: `https://junior-chart.vercel.app`. 한국어명 "주린이 차트", 영어명 "Junior Chart".
-
-- `index.html`: 정적 메타태그(description, OG, Twitter Card), Google/Naver 검색엔진 인증 코드, canonical URL
-- `public/robots.txt`, `public/sitemap.xml`: 크롤러 가이드. 새 라우트 추가 시 sitemap.xml에도 반영할 것
-- `SeoService`: 라우트별 동적 메타태그 갱신. 새 라우트 추가 시 `app.routes.ts`의 `data`에 `title`, `description`, `keywords` 포함
-- `LandingComponent`: JSON-LD 구조화 데이터 (WebApplication + FAQPage 스키마)
-
-### Testing
-
-**Backend (Jest):**
-
-- 테스트 파일: `backend/tests/**/*.test.ts`
-  - `tests/backtest/` — 백테스트 메트릭 및 서비스 테스트
-  - `tests/engine.service.test.ts`, `tests/engine.integrated.test.ts` — 엔진 유닛/통합
-  - `tests/engine-roadmap.test.ts` — 로드맵 기능 검증
-  - `tests/statistics.test.ts` — 통계 함수
-  - `tests/integration/api.test.ts` — API 엔드포인트 통합 테스트
-- 실행: `cd backend && npm test`
-- 특정 경로 필터: `npm test -- --testPathPatterns=backtest` (Jest 30에서 `--testPathPattern` → `--testPathPatterns`로 변경됨)
-
-**Frontend 유닛 테스트 (Vitest):**
-
-- Angular `@angular/build:unit-test` 빌더 사용, `jsdom` 환경
-- 테스트 파일: `src/**/*.spec.ts`
-- 실행: `cd frontend && ng test` (watch 모드) / `ng test --no-watch` (CI)
-- `SupabaseService`, `AnalyticsService`를 mock하여 네트워크 없이 격리 테스트
-
-**Frontend E2E 테스트 (Playwright):**
-
-- 테스트 파일: `frontend/tests/*.spec.ts`
-- 실행: `cd frontend && npx playwright test`
-- `http://localhost:4200` 기반 — dev 서버가 실행 중이어야 함
-- Supabase 인증 플로우 테스트는 `TEST_EMAIL`, `TEST_PASSWORD` 환경변수 필요 (없으면 자동 skip)
-
-### Docker
-
-Both services have multi-stage Dockerfiles. Frontend builds to Nginx with gzip and SPA fallback routing (`nginx.conf`). Backend runs Node 24-alpine.
-
-### Deployment (Vercel)
-
-프론트엔드는 Vercel에서 GitHub main 브랜치 push 시 자동 배포. `npm install` 시 strict peer dep 검사를 하므로 `--legacy-peer-deps`로 설치된 패키지가 있으면 CI에서 실패한다. Angular 패키지 추가/업데이트 후에는 `rm -rf node_modules package-lock.json && npm install`로 lock 파일을 재생성하여 버전을 통일할 것.
-
-### Roadmap
-
-`docs/ROADMAP.md`: 엔진 고도화 및 교육적 가치 강화 로드맵. Phase 1(엔진 신뢰도) → Phase 2(패턴 설명력) → Phase 3(교육적 경험) → Phase 4(투명성) 순서로 구성.
+See `docs/ROADMAP.md` for engine enhancement and educational value roadmap (Phase 1-4).
