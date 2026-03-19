@@ -301,8 +301,8 @@ export class EngineService {
             }
         }
 
-        // 4. Top correlation bonus: +10 if best match > 0.85
-        if (matchCount > 0 && matches[0].correlation > 0.85) {
+        // 4. Top correlation bonus: +10 if best price correlation > 0.85
+        if (matchCount > 0 && (matches[0].priceCorrelation ?? matches[0].correlation) > 0.85) {
             confidenceScore += 10;
         }
 
@@ -374,13 +374,12 @@ export class EngineService {
             // 거래량 상관계수
             const volumeScore = this.getVolumeCorrelation(targetWindow, windowData);
 
-            // 최종 점수: 가격(70%) + 거래량(30%)
-            const finalScore = priceScore * 0.7 + volumeScore * 0.3;
+            // 가격 패턴으로 필터링, 거래량은 순위 결정용
+            const finalScore = volumeScore === 0
+                ? priceScore
+                : priceScore * 0.7 + volumeScore * 0.3;
 
-            // 거래량도 최소 0.6 이상이어야 함 (단, volumeScore가 0이면 거래량 데이터 부족으로 패스)
-            const volumeCondition = volumeScore === 0 || volumeScore >= 0.6;
-
-            if (finalScore >= threshold && volumeCondition) {
+            if (priceScore >= threshold) {
                 const future = history.slice(i + windowSize, i + windowSize + predictionSize).map(d => d.close);
 
                 // Phase 3-2: 시뮬레이션 수익률 계산 (비정규화된 원본 가격 기준)
@@ -389,9 +388,10 @@ export class EngineService {
                 const simulatedReturn = sellPrice !== undefined ? (sellPrice - buyPrice) / buyPrice : undefined;
 
                 matches.push({
-                    correlation: finalScore,
+                    correlation: priceScore,
                     priceCorrelation: priceScore,
                     volumeCorrelation: volumeScore,
+                    compositeScore: finalScore,
                     future,
                     date: new Date(history[i].time * 1000).toLocaleDateString(),
                     windowData,
@@ -402,7 +402,7 @@ export class EngineService {
         }
 
         const sortedMatches = matches
-            .sort((a, b) => b.correlation - a.correlation)
+            .sort((a, b) => (b.compositeScore ?? b.correlation) - (a.compositeScore ?? a.correlation))
             .slice(0, 10)  // 5개 → 10개로 확장 (확률 구름 시각화용)
             .map((match, index) => ({
                 ...match,
@@ -562,10 +562,11 @@ export class EngineService {
         medium: PredictionResult,
         long: PredictionResult
     ): 'A' | 'B' | 'C' {
-        // 각 시간 프레임에서 유효 매칭이 있는지 확인 (상관계수 0.8 이상)
-        const shortValid = short.matches.length > 0 && short.matches[0].correlation >= 0.8;
-        const mediumValid = medium.matches.length > 0 && medium.matches[0].correlation >= 0.8;
-        const longValid = long.matches.length > 0 && long.matches[0].correlation >= 0.8;
+        // 각 시간 프레임에서 유효 매칭이 있는지 확인 (가격 상관계수 0.8 이상)
+        const getPrice = (m: PredictionMatch) => m.priceCorrelation ?? m.correlation;
+        const shortValid = short.matches.length > 0 && getPrice(short.matches[0]) >= 0.8;
+        const mediumValid = medium.matches.length > 0 && getPrice(medium.matches[0]) >= 0.8;
+        const longValid = long.matches.length > 0 && getPrice(long.matches[0]) >= 0.8;
 
         const validCount = [shortValid, mediumValid, longValid].filter(Boolean).length;
 
@@ -744,16 +745,19 @@ export class EngineService {
                 timeWarp = this.calculateTimeWarp(dtwResult.path);
             }
 
-            // 4. 최종 점수 계산
-            // DTW 사용: 가격(70% - dtwWeight) + 거래량(30%) + DTW(dtwWeight), 가중치 합계 1.0
-            // DTW 미사용: 가격(70%) + 거래량(30%)
-            const finalScore = opts.useDTW
-                ? priceScore * (0.7 - opts.dtwWeight) + volumeScore * 0.3 + dtwSimilarity * opts.dtwWeight
-                : priceScore * 0.7 + volumeScore * 0.3;
+            // 4. 최종 점수 계산 (순위 결정용, 필터링은 priceScore 기준)
+            let finalScore: number;
+            if (volumeScore === 0) {
+                finalScore = opts.useDTW
+                    ? priceScore * (1 - opts.dtwWeight) + dtwSimilarity * opts.dtwWeight
+                    : priceScore;
+            } else {
+                finalScore = opts.useDTW
+                    ? priceScore * (0.7 - opts.dtwWeight) + volumeScore * 0.3 + dtwSimilarity * opts.dtwWeight
+                    : priceScore * 0.7 + volumeScore * 0.3;
+            }
 
-            const volumeCondition = volumeScore === 0 || volumeScore >= 0.5;
-
-            if (finalScore >= threshold && volumeCondition) {
+            if (priceScore >= threshold) {
                 const future = history.slice(i + windowSize, i + windowSize + predictionSize).map(d => d.close);
 
                 // Phase 3-2: 시뮬레이션 수익률 계산 (비정규화된 원본 가격 기준)
@@ -762,9 +766,10 @@ export class EngineService {
                 const simulatedReturn = sellPrice !== undefined ? (sellPrice - buyPrice) / buyPrice : undefined;
 
                 matches.push({
-                    correlation: finalScore,
+                    correlation: priceScore,
                     priceCorrelation: priceScore,
                     volumeCorrelation: volumeScore,
+                    compositeScore: finalScore,
                     dtwSimilarity: opts.useDTW ? dtwSimilarity : undefined,
                     timeWarp: opts.useDTW ? timeWarp : undefined,
                     future,
@@ -777,7 +782,7 @@ export class EngineService {
         }
 
         const sortedMatches = matches
-            .sort((a, b) => b.correlation - a.correlation)
+            .sort((a, b) => (b.compositeScore ?? b.correlation) - (a.compositeScore ?? a.correlation))
             .slice(0, 10)
             .map((match, index) => ({
                 ...match,

@@ -45,7 +45,8 @@ npm test -- --testPathPatterns=backtest
 ### Pattern Matching Engine (`src/services/engine.service.ts`)
 - Hybrid scoring: Pearson + Spearman + volume correlation + DTW + ATR
 - 최근 15 거래일을 전체 과거 윈도우와 비교
-- correlation >= 0.82인 매치만 사용, 상위 5개로 예측 시나리오 생성
+- **필터링**: 가격 상관계수(Pearson+Spearman 평균) >= 0.78 (DTW 사용 시 0.75)
+- **순위 결정**: 복합 점수(가격 70% + 거래량 30%, 거래량 데이터 없으면 가격만) 기준 정렬, 상위 5개로 예측 시나리오 생성
 - 현재 가격 수준으로 정규화 후 표준편차 기반 신뢰구간
 - `analyzeIntegrated(history, matches=[])`: matches 배열을 받아 matchCount·수렴·상관 품질 기반 연속 신뢰도 (20-100) 및 7종 코멘트 생성. 모든 분석 모드(basic/multi/advanced)에서 matches를 전달.
 

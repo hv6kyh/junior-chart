@@ -14,6 +14,7 @@ export interface PredictionMatch {
     windowData: OHLC[];
     priceCorrelation?: number;
     volumeCorrelation?: number;
+    compositeScore?: number;  // 가격+거래량(+DTW) 복합 점수 (순위 결정용)
     weight?: number;
     opacity?: number;  // 시각화용 투명도 (0.1 ~ 1.0)
     rank?: number;     // 순위 (1 ~ 10)
