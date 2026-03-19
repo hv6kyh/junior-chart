@@ -25,6 +25,38 @@
     --border-light: #f2f4f6;
     --divider-color: #f2f4f6;
 
+    /* ═══ Semantic Colors (extended) ═══ */
+    --error-color: #dc2626;
+    --error-bg: #fef2f2;
+    --error-border: #fecaca;
+
+    --grade-a: #27ae60;
+    --grade-b: #f2994a;
+    --grade-c: #eb5757;
+
+    --vol-low: #4ade80;
+    --vol-medium: #facc15;
+    --vol-high: #fb923c;
+    --vol-very-high: #f87171;
+
+    /* ═══ Typography ═══ */
+    --font-size-xs: 11px;
+    --font-size-sm: 13px;
+    --font-size-md: 15px;
+    --font-size-lg: 18px;
+    --font-size-xl: 22px;
+    --font-size-2xl: 28px;
+    --font-size-3xl: 36px;
+
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    --line-height-tight: 1.2;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.65;
+
     /* ═══ Shadows (layered depth) ═══ */
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -56,6 +88,8 @@
 
     /* ═══ Layout ═══ */
     --header-height: 56px;
+    --breakpoint-mobile: 768px;
+    --breakpoint-tablet: 1200px;
 }
 
 *,
@@ -82,7 +116,7 @@ body {
 }
 
 .skeleton-shimmer {
-    background: linear-gradient(90deg, #f2f4f6 25%, #e5e8eb 50%, #f2f4f6 75%);
+    background: linear-gradient(90deg, var(--border-light) 25%, var(--border-color) 50%, var(--border-light) 75%);
     background-size: 200% 100%;
     animation: skeleton-pulse 1.5s infinite;
     border-radius: var(--radius-sm);
