@@ -81,8 +81,8 @@
 | File | Change |
 |------|--------|
 | `frontend/src/app/app.routes.ts` | 공시 모듈 lazy loading 추가 |
-| `frontend/src/app/header/header.component.ts` | "공시 분석" 네비게이션 링크 추가 |
-| `frontend/src/app/header/header.component.html` | "공시 분석" 메뉴 항목 추가 |
+| `frontend/src/app/components/header/header.component.ts` | "공시 분석" 네비게이션 링크 추가 |
+| `frontend/src/app/components/header/header.component.html` | "공시 분석" 메뉴 항목 추가 |
 
 ### GitHub Actions — 새로 생성
 
@@ -1123,7 +1123,8 @@ Expected: FAIL
 ```typescript
 // backend/src/services/disclosure/batch.service.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
+const yahooFinance = new (YahooFinance as any)();
 import type { DisclosureProvider, DisclosureType } from './types.js';
 import { DISCLOSURE_TYPES } from './types.js';
 import type { DisclosureService } from './disclosure.service.js';
@@ -1183,8 +1184,7 @@ export class BatchService {
           if (!d.stockCode) continue;
 
           // market 필드 (Y=KOSPI→.KS, K=KOSDAQ→.KQ) 는 disclosures 테이블에서 조회
-          const suffix = d.market === 'Y' ? '.KS' : '.KQ';
-          const symbol = `${d.stockCode}${suffix}`;
+          const symbol = `${d.stockCode}${this.getYahooSuffix(d.market || 'Y')}`;
 
           const baseDate = new Date(d.disclosedAt);
           const targetDate = new Date(baseDate);
@@ -1256,9 +1256,8 @@ export class BatchService {
     return { updated };
   }
 
-  private getYahooSymbol(stockCode: string, market: string): string {
-    const suffix = market === 'Y' ? '.KS' : '.KQ';
-    return `${stockCode}${suffix}`;
+  private getYahooSuffix(market: string): string {
+    return market === 'Y' ? '.KS' : '.KQ';
   }
 }
 ```
@@ -2935,7 +2934,7 @@ git commit -m "feat(disclosure/fe): 유형별 통계 페이지 구현"
 **Files:**
 - Create: `frontend/src/app/disclosure/disclosure.routes.ts`
 - Modify: `frontend/src/app/app.routes.ts`
-- Modify: `frontend/src/app/header/header.component.html`
+- Modify: `frontend/src/app/components/header/header.component.html`
 
 - [ ] **Step 1: 공시 모듈 라우트 정의**
 
@@ -2993,7 +2992,7 @@ export default [
 
 - [ ] **Step 3: 헤더에 네비게이션 추가**
 
-`frontend/src/app/header/header.component.html`에 기존 메뉴 항목 옆에 추가:
+`frontend/src/app/components/header/header.component.html`에 기존 메뉴 항목 옆에 추가:
 
 ```html
 <a routerLink="/disclosure" routerLinkActive="active">공시 분석</a>
@@ -3007,7 +3006,7 @@ Expected: 컴파일 에러 없음. disclosure 모듈이 별도 chunk로 분리�
 - [ ] **Step 5: 커밋**
 
 ```bash
-git add frontend/src/app/disclosure/disclosure.routes.ts frontend/src/app/app.routes.ts frontend/src/app/header/
+git add frontend/src/app/disclosure/disclosure.routes.ts frontend/src/app/app.routes.ts frontend/src/app/components/header/
 git commit -m "feat(disclosure/fe): 라우팅 통합 + 헤더 네비게이션 추가 (lazy loaded)"
 ```
 
