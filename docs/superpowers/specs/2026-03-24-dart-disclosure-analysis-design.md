@@ -173,7 +173,7 @@ type DisclosureType =
 | `GET` | `/api/disclosures/stats/:type` | 특정 공시 유형의 전체 집계 통계 |
 | `GET` | `/api/disclosures/types` | 공시 유형 목록 + 각 유형별 표본 수 |
 | `POST` | `/api/subscribers` | 이메일 구독 등록 (Phase 3) |
-| `DELETE` | `/api/subscribers/:email` | 구독 해지 (Phase 3) |
+| `GET` | `/api/subscribers/unsubscribe?token=xxx` | 구독 해지 — 서명된 토큰 검증 (Phase 3) |
 
 ### 공용 통계 유틸 추출
 
@@ -215,18 +215,19 @@ DART API의 `report_nm`(공시 제목)과 `pblntf_detail_ty`(공시 상세 유�
 
 DART 공시 제목은 "자기주식취득결정", "전환사채권발행결정" 같은 정형화된 패턴을 따르므로 키워드 매칭 정확도가 높음.
 
-### 기업코드 ↔ 종목코드 매핑
+### 기업코드 ↔ 종목코드 ↔ 시장 매핑
 
 1. 초기 셋업 시 DART `corpCode.xml` 다운로드 (전체 기업 목록, ~3MB)
-2. `corp_code` → `stock_code` 매핑 구성 (상장사만 필터링, ~2,500개)
+2. `corp_code` → `stock_code` + `corp_cls` 매핑 구성 (상장사만 필터링, ~2,500개)
+   - `corp_cls` 필드로 시장 구분: `Y` = KOSPI(유가증권), `K` = KOSDAQ
 3. Supabase에 캐시하거나 메모리에 로드
 
 ### 주가 매핑 (Yahoo Finance)
 
 ```
-종목코드 → Yahoo Finance 심볼 변환:
-  005930 → 005930.KS (KOSPI)
-  035720 → 035720.KQ (KOSDAQ)
+종목코드 + corp_cls → Yahoo Finance 심볼 변환:
+  005930 (corp_cls=Y) → 005930.KS (KOSPI)
+  035720 (corp_cls=K) → 035720.KQ (KOSDAQ)
 
 수익률 계산 기준:
   - 공시일 종가: base_price
