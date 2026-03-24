@@ -31,6 +31,7 @@ export interface RawDisclosure {
   corpCode: string;
   corpName: string;
   stockCode: string | null;
+  market: string | null; // Y=KOSPI, K=KOSDAQ
   title: string;
   disclosedAt: string; // YYYY-MM-DD
   sourceUrl: string;

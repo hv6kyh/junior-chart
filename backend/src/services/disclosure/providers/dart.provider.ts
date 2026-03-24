@@ -113,6 +113,7 @@ export class DartProvider implements DisclosureProvider {
           corpCode: item.corp_code,
           corpName: item.corp_name,
           stockCode: item.stock_code || null,
+          market: item.corp_cls,
           title: item.report_nm,
           disclosedAt: `${item.rcept_dt.slice(0, 4)}-${item.rcept_dt.slice(4, 6)}-${item.rcept_dt.slice(6, 8)}`,
           sourceUrl: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${item.rcept_no}`,

@@ -16,7 +16,7 @@ export class DisclosureService {
       corp_code: item.corpCode,
       corp_name: item.corpName,
       stock_code: item.stockCode,
-      market: item.rawType || null, // corp_cls: Y=KOSPI, K=KOSDAQ
+      market: item.market || null,
       disclosure_type: item.classifiedType,
       title: item.title,
       disclosed_at: item.disclosedAt,

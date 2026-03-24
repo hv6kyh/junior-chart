@@ -25,6 +25,7 @@ describe('DisclosureService', () => {
         corpCode: '00126380',
         corpName: '삼성전자',
         stockCode: '005930',
+        market: 'Y',
         title: '자기주식취득결정',
         disclosedAt: '2026-03-24',
         sourceUrl: 'https://dart.fss.or.kr/test',

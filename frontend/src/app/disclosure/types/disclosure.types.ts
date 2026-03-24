@@ -29,6 +29,7 @@ export interface Disclosure {
   corpCode: string;
   corpName: string;
   stockCode: string | null;
+  market: string | null;
   disclosureType: DisclosureType | null;
   title: string;
   disclosedAt: string;
