@@ -1,5 +1,6 @@
 // backend/src/services/disclosure/providers/dart.provider.ts
 import type { DisclosureProvider, DisclosureType, RawDisclosure } from '../types.js';
+import { withRetry } from '../../../utils/retry.js';
 
 interface DartListItem {
   corp_code: string;
@@ -86,7 +87,10 @@ export class DartProvider implements DisclosureProvider {
       url.searchParams.set('page_no', String(pageNo));
       url.searchParams.set('page_count', '100');
 
-      const response = await fetch(url.toString());
+      const response = await withRetry(
+        () => fetch(url.toString()),
+        { maxRetries: 3, baseDelay: 1000 },
+      );
       if (!response.ok) {
         throw new Error(`DART API error: ${response.status} ${response.statusText}`);
       }
