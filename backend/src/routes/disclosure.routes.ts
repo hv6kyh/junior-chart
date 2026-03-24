@@ -3,18 +3,30 @@ import { createClient } from '@supabase/supabase-js';
 import { DisclosureService } from '../services/disclosure/disclosure.service.js';
 import { AnalysisService } from '../services/disclosure/analysis.service.js';
 import { isValidDisclosureType, type DisclosureType } from '../services/disclosure/types.js';
+import type { PatternStats } from '../services/disclosure/types.js';
 
 const router = Router();
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
-const disclosureService = new DisclosureService(supabase);
-const analysisService = new AnalysisService(supabase);
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('SUPABASE_URL or SUPABASE_SERVICE_KEY not set — disclosure API disabled');
+}
+
+const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
+
+const disclosureService = supabase ? new DisclosureService(supabase) : null;
+const analysisService = supabase ? new AnalysisService(supabase) : null;
 
 // GET /api/disclosures/today
 router.get('/today', async (req: Request, res: Response) => {
+  if (!disclosureService || !analysisService) {
+    res.status(503).json({ error: 'Disclosure service not configured' });
+    return;
+  }
   try {
     const today = new Date().toISOString().slice(0, 10);
     const date = (req.query.date as string) || today;
@@ -38,6 +50,10 @@ router.get('/today', async (req: Request, res: Response) => {
 
 // GET /api/disclosures/types
 router.get('/types', async (_req: Request, res: Response) => {
+  if (!disclosureService || !analysisService) {
+    res.status(503).json({ error: 'Disclosure service not configured' });
+    return;
+  }
   try {
     const summary = await analysisService.getAllTypesSummary();
     res.json({ types: summary });
@@ -49,6 +65,10 @@ router.get('/types', async (_req: Request, res: Response) => {
 
 // GET /api/disclosures/stats/:type
 router.get('/stats/:type', async (req: Request, res: Response) => {
+  if (!disclosureService || !analysisService) {
+    res.status(503).json({ error: 'Disclosure service not configured' });
+    return;
+  }
   try {
     const type = req.params.type;
     if (!isValidDisclosureType(type)) {
@@ -66,6 +86,10 @@ router.get('/stats/:type', async (req: Request, res: Response) => {
 
 // GET /api/disclosures/:id
 router.get('/:id', async (req: Request, res: Response) => {
+  if (!disclosureService || !analysisService) {
+    res.status(503).json({ error: 'Disclosure service not configured' });
+    return;
+  }
   try {
     const disclosure = await disclosureService.getDisclosureById(req.params.id);
     if (!disclosure) {
