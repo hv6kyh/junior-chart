@@ -36,4 +36,12 @@ export const routes: Routes = [
       keywords: '주식 용어,골든크로스,PER,PBR,주식 Q&A,주식 초보 질문,AI 주식 상담',
     },
   },
+  {
+    path: 'disclosure',
+    loadChildren: () => import('./disclosure/disclosure.routes'),
+    data: {
+      title: '공시 분석 — 주린이 차트',
+      description: 'DART 공시 기반 주가 패턴 분석',
+    },
+  },
 ];

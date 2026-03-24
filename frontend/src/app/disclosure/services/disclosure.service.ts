@@ -17,7 +17,7 @@ export class DisclosureApiService {
   constructor(private http: HttpClient) {}
 
   getToday(date?: string): Observable<TodayResponse> {
-    const params = date ? { date } : {};
+    const params = date ? { date } : undefined;
     return this.http.get<TodayResponse>(`${this.baseUrl}/today`, { params });
   }
 

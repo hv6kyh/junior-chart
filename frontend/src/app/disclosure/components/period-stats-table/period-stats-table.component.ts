@@ -1,11 +1,11 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule, DecimalPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import type { PatternStats } from '../../types/disclosure.types';
 
 @Component({
   selector: 'app-period-stats-table',
   standalone: true,
-  imports: [CommonModule, DecimalPipe],
+  imports: [CommonModule],
   templateUrl: './period-stats-table.component.html',
   styleUrls: ['./period-stats-table.component.css'],
 })
