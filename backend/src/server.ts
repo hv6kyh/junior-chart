@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { EngineService } from './services/engine.service.js';
 import { BacktestService } from './services/backtest.service.js';
 import { OHLC, BacktestMode } from './types/index.js';
+import disclosureRoutes from './routes/disclosure.routes.js';
 
 dotenv.config();
 
@@ -374,6 +375,8 @@ app.get('/api/stock/:symbol/backtest', async (req, res) => {
       .json({ error: 'Internal Server Error', message: error.message });
   }
 });
+
+app.use('/api/disclosures', disclosureRoutes);
 
 app.listen(PORT, () => {
   console.log(`[Junior Chart Backend] Running at http://localhost:${PORT}`);
