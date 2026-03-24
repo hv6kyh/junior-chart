@@ -1,0 +1,26 @@
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm, 13px);
+}
+
+.stats-table th,
+.stats-table td {
+  padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+  text-align: right;
+  border-bottom: 1px solid var(--border-color, #e5e8eb);
+}
+
+.stats-table th {
+  font-weight: 600;
+  color: var(--text-secondary, #6b7684);
+}
+
+.stats-table td.label {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-primary, #191f28);
+}
+
+.positive { color: var(--positive-color, #f04452); }
+.negative { color: var(--negative-color, #3182f6); }

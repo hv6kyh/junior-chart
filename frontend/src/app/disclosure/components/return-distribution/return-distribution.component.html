@@ -1,0 +1,26 @@
+@if (bars.length > 0) {
+  <div class="distribution">
+    <svg [attr.width]="svgWidth" [attr.height]="svgHeight" class="chart">
+      @for (bar of bars; track bar.x) {
+        <rect
+          [attr.x]="bar.x"
+          [attr.y]="svgHeight - bar.height - 20"
+          [attr.width]="barWidth"
+          [attr.height]="bar.height"
+          [class.bar-positive]="bar.isPositive"
+          [class.bar-negative]="!bar.isPositive"
+          rx="2"
+        />
+        <text
+          [attr.x]="bar.x + barWidth / 2"
+          [attr.y]="svgHeight - 4"
+          class="bar-label"
+          text-anchor="middle">
+          {{ bar.label }}
+        </text>
+      }
+    </svg>
+  </div>
+} @else {
+  <p class="no-data">데이터 부족</p>
+}

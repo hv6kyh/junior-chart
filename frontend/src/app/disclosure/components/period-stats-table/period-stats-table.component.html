@@ -1,0 +1,42 @@
+<table class="stats-table">
+  <thead>
+    <tr>
+      <th></th>
+      @for (p of periods; track p.key) {
+        <th>{{ p.label }}</th>
+      }
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="label">평균 수익률</td>
+      @for (p of periods; track p.key) {
+        <td [class.positive]="isPositive(statsByPeriod[p.key]?.avgReturn ?? null)"
+            [class.negative]="isNegative(statsByPeriod[p.key]?.avgReturn ?? null)">
+          {{ formatReturn(statsByPeriod[p.key]?.avgReturn ?? null) }}
+        </td>
+      }
+    </tr>
+    <tr>
+      <td class="label">중앙값</td>
+      @for (p of periods; track p.key) {
+        <td [class.positive]="isPositive(statsByPeriod[p.key]?.medianReturn ?? null)"
+            [class.negative]="isNegative(statsByPeriod[p.key]?.medianReturn ?? null)">
+          {{ formatReturn(statsByPeriod[p.key]?.medianReturn ?? null) }}
+        </td>
+      }
+    </tr>
+    <tr>
+      <td class="label">상승 확률</td>
+      @for (p of periods; track p.key) {
+        <td>{{ formatRate(statsByPeriod[p.key]?.positiveRate ?? null) }}</td>
+      }
+    </tr>
+    <tr>
+      <td class="label">표본 수</td>
+      @for (p of periods; track p.key) {
+        <td>{{ statsByPeriod[p.key]?.sampleCount ?? '-' }}건</td>
+      }
+    </tr>
+  </tbody>
+</table>
