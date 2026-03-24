@@ -10,7 +10,9 @@ export class SupabaseService {
 
   constructor() {
     const isBrowser = isPlatformBrowser(this.platformId);
-    this.client = createClient(environment.supabase.url, environment.supabase.anonKey, {
+    const url = environment.supabase.url || 'https://placeholder.supabase.co';
+    const key = environment.supabase.anonKey || 'placeholder';
+    this.client = createClient(url, key, {
       auth: {
         autoRefreshToken: isBrowser,
         persistSession: isBrowser,
