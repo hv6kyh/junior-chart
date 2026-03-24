@@ -32,12 +32,19 @@ router.get('/today', async (req: Request, res: Response) => {
     const date = (req.query.date as string) || today;
     const disclosures = await disclosureService.getDisclosuresByDate(date);
 
+    // 유형별 캐시로 N+1 쿼리 방지
+    const statsCache = new Map<string, PatternStats[]>();
     const withStats = await Promise.all(
       disclosures.map(async (d) => {
-        const stats = d.disclosureType
-          ? await analysisService.getStatsByType(d.disclosureType)
-          : [];
-        return { disclosure: d, stats };
+        if (!d.disclosureType) return { disclosure: d, stats: [] };
+
+        if (!statsCache.has(d.disclosureType)) {
+          statsCache.set(
+            d.disclosureType,
+            await analysisService.getStatsByType(d.disclosureType),
+          );
+        }
+        return { disclosure: d, stats: statsCache.get(d.disclosureType)! };
       })
     );
 
