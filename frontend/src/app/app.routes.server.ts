@@ -6,6 +6,10 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Client,
   },
   {
+    path: 'disclosure',
+    renderMode: RenderMode.Client,
+  },
+  {
     path: 'disclosure/type/:type',
     renderMode: RenderMode.Client,
   },

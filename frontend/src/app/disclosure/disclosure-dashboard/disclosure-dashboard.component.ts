@@ -11,6 +11,7 @@ import type {
   TypeSummary,
   DisclosureType,
 } from '../types/disclosure.types';
+import { formatReturn as _formatReturn } from '../utils/format';
 
 @Component({
   selector: 'app-disclosure-dashboard',
@@ -59,13 +60,9 @@ export class DisclosureDashboardComponent implements OnInit {
     );
   }
 
+  formatReturn = _formatReturn;
+
   toggleTypeFilter(type: DisclosureType): void {
     this.selectedType = this.selectedType === type ? null : type;
-  }
-
-  formatReturn(val: number | null): string {
-    if (val === null) return '-';
-    const sign = val >= 0 ? '+' : '';
-    return `${sign}${val.toFixed(1)}%`;
   }
 }

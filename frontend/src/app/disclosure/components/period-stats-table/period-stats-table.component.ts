@@ -1,6 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import type { PatternStats } from '../../types/disclosure.types';
+import { formatReturn as _formatReturn, formatRate as _formatRate } from '../../utils/format';
 
 @Component({
   selector: 'app-period-stats-table',
@@ -11,6 +12,9 @@ import type { PatternStats } from '../../types/disclosure.types';
 })
 export class PeriodStatsTableComponent {
   @Input({ required: true }) stats!: PatternStats[];
+
+  formatReturn = _formatReturn;
+  formatRate = _formatRate;
 
   get statsByPeriod(): Record<string, PatternStats | undefined> {
     const map: Record<string, PatternStats | undefined> = {};
@@ -25,17 +29,6 @@ export class PeriodStatsTableComponent {
     { key: '1m', label: '1개월' },
     { key: '3m', label: '3개월' },
   ];
-
-  formatReturn(val: number | null): string {
-    if (val === null) return '-';
-    const sign = val >= 0 ? '+' : '';
-    return `${sign}${val.toFixed(1)}%`;
-  }
-
-  formatRate(val: number | null): string {
-    if (val === null) return '-';
-    return `${(val * 100).toFixed(0)}%`;
-  }
 
   isPositive(val: number | null): boolean {
     return val !== null && val > 0;
