@@ -1,13 +1,11 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import YahooFinance from 'yahoo-finance2';
-import dotenv from 'dotenv';
 import { EngineService } from './services/engine.service.js';
 import { BacktestService } from './services/backtest.service.js';
 import { OHLC, BacktestMode } from './types/index.js';
 import disclosureRoutes from './routes/disclosure.routes.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
