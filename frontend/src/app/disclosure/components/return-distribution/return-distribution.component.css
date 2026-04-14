@@ -1,0 +1,21 @@
+.distribution {
+  overflow-x: auto;
+  padding: var(--spacing-sm, 8px) 0;
+}
+
+.chart { display: block; margin: 0 auto; }
+
+.bar-positive { fill: var(--positive-color, #f04452); opacity: 0.7; }
+.bar-negative { fill: var(--negative-color, #3182f6); opacity: 0.7; }
+
+.bar-label {
+  font-size: 9px;
+  fill: var(--text-tertiary, #8b95a1);
+}
+
+.no-data {
+  text-align: center;
+  color: var(--text-tertiary, #8b95a1);
+  font-size: var(--font-size-sm, 13px);
+  padding: var(--spacing-xl, 32px);
+}

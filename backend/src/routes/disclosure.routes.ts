@@ -1,0 +1,118 @@
+import { Router, type Request, type Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
+import { DisclosureService } from '../services/disclosure/disclosure.service.js';
+import { AnalysisService } from '../services/disclosure/analysis.service.js';
+import { isValidDisclosureType, type DisclosureType } from '../services/disclosure/types.js';
+import type { PatternStats } from '../services/disclosure/types.js';
+
+const router = Router();
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('SUPABASE_URL or SUPABASE_SERVICE_KEY not set — disclosure API disabled');
+}
+
+const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
+
+const disclosureService = supabase ? new DisclosureService(supabase) : null;
+const analysisService = supabase ? new AnalysisService(supabase) : null;
+
+// GET /api/disclosures/today
+router.get('/today', async (req: Request, res: Response) => {
+  if (!disclosureService || !analysisService) {
+    res.status(503).json({ error: 'Disclosure service not configured' });
+    return;
+  }
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const date = (req.query.date as string) || today;
+    const disclosures = await disclosureService.getDisclosuresByDate(date);
+
+    // 유형별 캐시로 N+1 쿼리 방지
+    const statsCache = new Map<string, PatternStats[]>();
+    const withStats = await Promise.all(
+      disclosures.map(async (d) => {
+        if (!d.disclosureType) return { disclosure: d, stats: [] };
+
+        if (!statsCache.has(d.disclosureType)) {
+          statsCache.set(
+            d.disclosureType,
+            await analysisService.getStatsByType(d.disclosureType),
+          );
+        }
+        return { disclosure: d, stats: statsCache.get(d.disclosureType)! };
+      })
+    );
+
+    res.json({ date, disclosures: withStats });
+  } catch (err: any) {
+    console.error('GET /disclosures/today error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/disclosures/types
+router.get('/types', async (_req: Request, res: Response) => {
+  if (!disclosureService || !analysisService) {
+    res.status(503).json({ error: 'Disclosure service not configured' });
+    return;
+  }
+  try {
+    const summary = await analysisService.getAllTypesSummary();
+    res.json({ types: summary });
+  } catch (err: any) {
+    console.error('GET /disclosures/types error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/disclosures/stats/:type
+router.get('/stats/:type', async (req: Request, res: Response) => {
+  if (!disclosureService || !analysisService) {
+    res.status(503).json({ error: 'Disclosure service not configured' });
+    return;
+  }
+  try {
+    const type = req.params.type;
+    if (!isValidDisclosureType(type)) {
+      res.status(400).json({ error: `Invalid disclosure type: ${type}` });
+      return;
+    }
+
+    const stats = await analysisService.getStatsByType(type as DisclosureType);
+    res.json({ type, stats });
+  } catch (err: any) {
+    console.error('GET /disclosures/stats/:type error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/disclosures/:id
+router.get('/:id', async (req: Request, res: Response) => {
+  if (!disclosureService || !analysisService) {
+    res.status(503).json({ error: 'Disclosure service not configured' });
+    return;
+  }
+  try {
+    const disclosure = await disclosureService.getDisclosureById(req.params.id);
+    if (!disclosure) {
+      res.status(404).json({ error: 'Disclosure not found' });
+      return;
+    }
+
+    const stats = disclosure.disclosureType
+      ? await analysisService.getStatsByType(disclosure.disclosureType)
+      : [];
+
+    res.json({ disclosure, stats });
+  } catch (err: any) {
+    console.error('GET /disclosures/:id error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+export default router;

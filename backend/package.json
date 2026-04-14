@@ -11,6 +11,7 @@
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.100.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "dynamic-time-warping": "^1.0.0",

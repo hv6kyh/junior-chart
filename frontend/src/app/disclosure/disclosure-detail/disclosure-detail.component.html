@@ -1,0 +1,42 @@
+<div class="detail">
+  @if (loading) {
+    <div class="loading">불러오는 중...</div>
+  } @else if (error) {
+    <div class="error">{{ error }}</div>
+  } @else if (disclosure) {
+    <header class="detail-header">
+      <h1>{{ disclosure.corpName }}</h1>
+      <p class="title">{{ disclosure.title }}</p>
+      <div class="meta">
+        @if (disclosure.disclosureType) {
+          <app-type-badge [type]="disclosure.disclosureType" />
+        }
+        <span class="date">{{ disclosure.disclosedAt }}</span>
+        <a [href]="disclosure.sourceUrl" target="_blank" rel="noopener" class="dart-link">
+          DART 원문 보기
+        </a>
+      </div>
+    </header>
+
+    @if (stats.length > 0) {
+      <section class="analysis">
+        <h2>과거 "{{ typeLabel }}" 공시 분석 결과</h2>
+
+        <app-period-stats-table [stats]="stats" />
+
+        @if (stat1m) {
+          <h3>수익률 분포 (1개월)</h3>
+          <app-return-distribution
+            [avgReturn]="stat1m.avgReturn"
+            [stddev]="stat1m.stddev"
+            [sampleCount]="stat1m.sampleCount"
+          />
+        }
+      </section>
+    } @else {
+      <p class="no-stats">이 공시 유형의 패턴 통계가 아직 없습니다.</p>
+    }
+
+    <app-disclaimer />
+  }
+</div>

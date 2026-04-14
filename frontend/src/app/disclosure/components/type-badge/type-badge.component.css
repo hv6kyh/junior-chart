@@ -1,0 +1,39 @@
+.badge {
+  display: inline-block;
+  padding: var(--spacing-xs, 4px) var(--spacing-sm, 8px);
+  border-radius: 4px;
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 600;
+  background: var(--surface-secondary, #f2f4f6);
+  color: var(--text-secondary, #6b7684);
+}
+
+.badge[data-type="treasury_stock_acquire"],
+.badge[data-type="treasury_stock_dispose"] {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.badge[data-type="capital_increase"],
+.badge[data-type="capital_decrease"] {
+  background: #eff8ff;
+  color: #175cd3;
+}
+
+.badge[data-type="convertible_bond"],
+.badge[data-type="bond_with_warrant"] {
+  background: #f9f5ff;
+  color: #6941c6;
+}
+
+.badge[data-type="merger"],
+.badge[data-type="split"],
+.badge[data-type="stock_split"] {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.badge[data-type="earnings_preliminary"] {
+  background: #fffaeb;
+  color: #b54708;
+}

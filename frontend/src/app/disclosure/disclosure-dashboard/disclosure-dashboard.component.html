@@ -1,0 +1,52 @@
+<div class="dashboard">
+  <header class="page-header">
+    <h1>오늘의 공시</h1>
+    <span class="date">{{ today }}</span>
+  </header>
+
+  @if (loading) {
+    <div class="loading">불러오는 중...</div>
+  } @else if (error) {
+    <div class="error">{{ error }}</div>
+  } @else {
+    <section class="today-section">
+      @if (disclosures.length === 0) {
+        <p class="empty">오늘 수집된 공시가 없습니다.</p>
+      } @else {
+        <div class="filter-bar">
+          <button
+            class="filter-btn"
+            [class.active]="!selectedType"
+            (click)="selectedType = null">
+            전체 ({{ disclosures.length }})
+          </button>
+        </div>
+
+        <div class="card-list">
+          @for (item of filteredDisclosures; track item.disclosure.id) {
+            <app-disclosure-card [item]="item" />
+          }
+        </div>
+      }
+    </section>
+
+    <section class="types-section">
+      <h2>공시 유형별 탐색</h2>
+      <div class="type-grid">
+        @for (ts of typeSummaries; track ts.type) {
+          <a class="type-card" [routerLink]="['/disclosure/type', ts.type]">
+            <app-type-badge [type]="ts.type" />
+            <span class="sample-count">{{ ts.sampleCount }}건</span>
+            <span class="avg-return"
+                  [class.positive]="(ts.avgReturn1m ?? 0) > 0"
+                  [class.negative]="(ts.avgReturn1m ?? 0) < 0">
+              평균 {{ formatReturn(ts.avgReturn1m) }}
+            </span>
+          </a>
+        }
+      </div>
+    </section>
+
+    <app-disclaimer />
+  }
+</div>
