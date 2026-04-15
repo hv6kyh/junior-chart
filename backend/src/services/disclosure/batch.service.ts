@@ -2,8 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import YahooFinance from 'yahoo-finance2';
 const yahooFinance = new (YahooFinance as any)();
-import type { DisclosureProvider, DisclosureType } from './types.js';
-import { DISCLOSURE_TYPES } from './types.js';
+import type { DisclosureProvider } from './types.js';
 import type { DisclosureService } from './disclosure.service.js';
 import type { AnalysisService } from './analysis.service.js';
 
@@ -115,16 +114,7 @@ export class BatchService {
   }
 
   async updateAllStats(): Promise<{ updated: number }> {
-    let updated = 0;
-    const types = Object.keys(DISCLOSURE_TYPES) as DisclosureType[];
-
-    for (const type of types) {
-      for (const period of ['1w', '1m', '3m'] as const) {
-        await this.analysisService.updatePatternStats(type, period);
-        updated++;
-      }
-    }
-
+    const updated = await this.analysisService.updateAllPatternStats();
     return { updated };
   }
 

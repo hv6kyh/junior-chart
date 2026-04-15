@@ -80,44 +80,69 @@ export class AnalysisService {
     };
   }
 
-  async updatePatternStats(
-    disclosureType: DisclosureType,
-    period: '1w' | '1m' | '3m',
-  ): Promise<void> {
-    const returnColumn = `return_${period}`;
+  async updateAllPatternStats(): Promise<number> {
+    // Aggregation runs inside Postgres via compute_pattern_stats() RPC.
+    // Doing it over PostgREST (39 queries returning ~270k rows) hits the
+    // authenticator role's 8s statement_timeout.
+    const { data, error } = await this.supabase.rpc('compute_pattern_stats');
+    if (error) throw new Error(`Failed to compute pattern stats: ${error.message}`);
 
-    const { data, error } = await this.supabase
-      .from('disclosure_prices')
-      .select(`${returnColumn}, disclosures!inner(disclosure_type)`)
-      .eq('disclosures.disclosure_type', disclosureType)
-      .not(returnColumn, 'is', null);
+    const rows = (data || []) as Array<{
+      disclosure_type: string;
+      period: '1w' | '1m' | '3m';
+      sample_count: number;
+      avg_return: number | null;
+      median_return: number | null;
+      stddev: number | null;
+      positive_rate: number | null;
+    }>;
 
-    if (error) throw new Error(`Failed to fetch returns: ${error.message}`);
+    if (rows.length === 0) return 0;
 
-    const returns = (data || []).map((row: any) => Number(row[returnColumn]));
-    const stats = AnalysisService.calculateStats(returns);
+    const now = new Date().toISOString();
+    const upsertRows = rows.map((row) => {
+      const n = row.sample_count;
+      const mean = row.avg_return;
+      const stddev = row.stddev;
+
+      let ciLower68: number | null = null;
+      let ciUpper68: number | null = null;
+      let ciLower95: number | null = null;
+      let ciUpper95: number | null = null;
+
+      if (n >= 2 && mean != null && stddev != null) {
+        const se = stddev / Math.sqrt(n);
+        const df = n - 1;
+        const t68 = getTMultiplier(df, '68');
+        const t95 = getTMultiplier(df, '95');
+        ciLower68 = mean - t68 * se;
+        ciUpper68 = mean + t68 * se;
+        ciLower95 = mean - t95 * se;
+        ciUpper95 = mean + t95 * se;
+      }
+
+      return {
+        disclosure_type: row.disclosure_type,
+        period: row.period,
+        sample_count: n,
+        avg_return: mean,
+        median_return: row.median_return,
+        stddev,
+        positive_rate: row.positive_rate,
+        ci_lower_68: ciLower68,
+        ci_upper_68: ciUpper68,
+        ci_lower_95: ciLower95,
+        ci_upper_95: ciUpper95,
+        updated_at: now,
+      };
+    });
 
     const { error: upsertError } = await this.supabase
       .from('pattern_stats')
-      .upsert(
-        {
-          disclosure_type: disclosureType,
-          period,
-          sample_count: stats.sampleCount,
-          avg_return: stats.avgReturn,
-          median_return: stats.medianReturn,
-          stddev: stats.stddev,
-          positive_rate: stats.positiveRate,
-          ci_lower_68: stats.ciLower68,
-          ci_upper_68: stats.ciUpper68,
-          ci_lower_95: stats.ciLower95,
-          ci_upper_95: stats.ciUpper95,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'disclosure_type,period' },
-      );
+      .upsert(upsertRows, { onConflict: 'disclosure_type,period' });
 
     if (upsertError) throw new Error(`Failed to upsert pattern stats: ${upsertError.message}`);
+    return upsertRows.length;
   }
 
   async getStatsByType(disclosureType: DisclosureType): Promise<PatternStats[]> {
