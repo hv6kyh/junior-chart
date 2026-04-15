@@ -11,3 +11,12 @@
     font-size: 13px;
     line-height: 1.6;
 }
+
+.footer-disclaimer {
+    margin: 0 0 6px;
+    color: var(--text-tertiary);
+}
+
+.footer-copy {
+    margin: 0;
+}
