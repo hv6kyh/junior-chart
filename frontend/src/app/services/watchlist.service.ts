@@ -48,9 +48,16 @@ export class WatchlistService {
     this._userStocks.set((data as UserStockRow[]) ?? []);
   }
 
+  readonly MAX_STOCKS = 20;
+
   async addStock(stock: UserStockInsert): Promise<boolean> {
     const user = this.auth.currentUser();
     if (!user) return false;
+
+    if (this._userStocks().length >= this.MAX_STOCKS) {
+      this._error.set(`관심종목은 최대 ${this.MAX_STOCKS}개까지 추가할 수 있습니다.`);
+      return false;
+    }
 
     this._error.set(null);
 
