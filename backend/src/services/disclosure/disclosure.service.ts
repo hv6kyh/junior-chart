@@ -63,37 +63,58 @@ export class DisclosureService {
     return (data || []).map(this.mapRow);
   }
 
-  async getDisclosuresNeedingPrices(period: '1w' | '1m' | '3m'): Promise<Disclosure[]> {
-    const daysMap = { '1w': 5, '1m': 21, '3m': 63 };
-    const columnMap = { '1w': 'price_1w', '1m': 'price_1m', '3m': 'price_3m' } as const;
-    const priceColumn = columnMap[period];
-
+  async getDisclosuresNeedingAnyPrice(minAgeDays = 11): Promise<Disclosure[]> {
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - Math.ceil(daysMap[period] * 1.5));
+    cutoffDate.setDate(cutoffDate.getDate() - minAgeDays);
     const cutoffStr = cutoffDate.toISOString().slice(0, 10);
 
-    // PostgREST's .or() cannot reference columns on an embedded resource,
-    // so we page through matching disclosures and filter client-side.
     const PAGE_SIZE = 1000;
+    const MAX_ATTEMPTS = 5;
     const result: Disclosure[] = [];
     let offset = 0;
 
     while (true) {
-      const { data, error } = await this.supabase
-        .from('disclosures')
-        .select('*, disclosure_prices!left(price_1w, price_1m, price_3m)')
-        .not('stock_code', 'is', null)
-        .lte('disclosed_at', cutoffStr)
-        .order('disclosed_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
+      let data: any[] | null = null;
+      let lastErr: unknown;
 
-      if (error) throw new Error(`Failed to fetch disclosures needing prices: ${error.message}`);
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const res = await this.supabase
+          .from('disclosures')
+          .select('*, disclosure_prices!left(price_1w,price_1m,price_3m)')
+          .not('stock_code', 'is', null)
+          .lte('disclosed_at', cutoffStr)
+          .order('disclosed_at', { ascending: false })
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (!res.error) {
+          data = res.data;
+          lastErr = undefined;
+          break;
+        }
+
+        lastErr = res.error;
+        const msg = res.error.message || '';
+        const transient = /50[234]|bad gateway|gateway timeout|timeout|fetch failed|network/i.test(msg);
+        if (!transient || attempt === MAX_ATTEMPTS) break;
+
+        const backoffMs = 1000 * Math.pow(2, attempt - 1);
+        console.warn(`  [retry ${attempt}/${MAX_ATTEMPTS}] page offset=${offset}: ${msg.slice(0, 120)} — waiting ${backoffMs}ms`);
+        await new Promise((r) => setTimeout(r, backoffMs));
+      }
+
+      if (lastErr) {
+        const msg = (lastErr as any)?.message || String(lastErr);
+        throw new Error(`Failed to fetch disclosures needing prices (offset=${offset}): ${msg}`);
+      }
+
       if (!data || data.length === 0) break;
 
       for (const row of data) {
-        const embedded = (row as any).disclosure_prices;
-        const priceRow = Array.isArray(embedded) ? embedded[0] : embedded;
-        if (!priceRow || priceRow[priceColumn] == null) {
+        const prices = (row as any).disclosure_prices;
+        const p1w = prices?.price_1w;
+        const p1m = prices?.price_1m;
+        const p3m = prices?.price_3m;
+        if (p1w == null || p1m == null || p3m == null) {
           result.push(this.mapRow(row));
         }
       }
