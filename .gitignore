@@ -33,5 +33,6 @@ playwright-report/
 test-results/
 
 .serena/
-docs/
+docs/*
+!docs/ceo/
 supabase/
