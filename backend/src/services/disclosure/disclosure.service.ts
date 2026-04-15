@@ -65,22 +65,44 @@ export class DisclosureService {
 
   async getDisclosuresNeedingPrices(period: '1w' | '1m' | '3m'): Promise<Disclosure[]> {
     const daysMap = { '1w': 5, '1m': 21, '3m': 63 };
-    const businessDays = daysMap[period];
-    const columnMap = { '1w': 'price_1w', '1m': 'price_1m', '3m': 'price_3m' };
+    const columnMap = { '1w': 'price_1w', '1m': 'price_1m', '3m': 'price_3m' } as const;
     const priceColumn = columnMap[period];
 
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - Math.ceil(businessDays * 1.5));
+    cutoffDate.setDate(cutoffDate.getDate() - Math.ceil(daysMap[period] * 1.5));
+    const cutoffStr = cutoffDate.toISOString().slice(0, 10);
 
-    const { data, error } = await this.supabase
-      .from('disclosures')
-      .select('*, disclosure_prices!left(*)')
-      .not('stock_code', 'is', null)
-      .lte('disclosed_at', cutoffDate.toISOString().slice(0, 10))
-      .or(`disclosure_prices.${priceColumn}.is.null,disclosure_prices.id.is.null`);
+    // PostgREST's .or() cannot reference columns on an embedded resource,
+    // so we page through matching disclosures and filter client-side.
+    const PAGE_SIZE = 1000;
+    const result: Disclosure[] = [];
+    let offset = 0;
 
-    if (error) throw new Error(`Failed to fetch disclosures needing prices: ${error.message}`);
-    return (data || []).map(this.mapRow);
+    while (true) {
+      const { data, error } = await this.supabase
+        .from('disclosures')
+        .select('*, disclosure_prices!left(price_1w, price_1m, price_3m)')
+        .not('stock_code', 'is', null)
+        .lte('disclosed_at', cutoffStr)
+        .order('disclosed_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (error) throw new Error(`Failed to fetch disclosures needing prices: ${error.message}`);
+      if (!data || data.length === 0) break;
+
+      for (const row of data) {
+        const embedded = (row as any).disclosure_prices;
+        const priceRow = Array.isArray(embedded) ? embedded[0] : embedded;
+        if (!priceRow || priceRow[priceColumn] == null) {
+          result.push(this.mapRow(row));
+        }
+      }
+
+      if (data.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+
+    return result;
   }
 
   private mapRow(row: any): Disclosure {
